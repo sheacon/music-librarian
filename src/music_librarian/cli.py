@@ -7,6 +7,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .artwork import embed_artwork
+from .clean import clean_album
 from .config import LASTFM_API_KEY, LIBRARY_PATH
 from .convert import convert_album_to_aac
 from .ignore import (
@@ -166,6 +168,7 @@ def discover(
 
                 for album in display_albums:
                     fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
+                    url = f"https://open.qobuz.com/album/{album.id}"
                     if album.standard_id:
                         # This is a hi-fi version that will have bonus tracks removed
                         console.print(
@@ -176,6 +179,7 @@ def discover(
                         console.print(
                             f"    [{album.year}] {album.title} [dim]({fidelity})[/dim]"
                         )
+                    console.print(f"      [blue]{url}[/blue]")
 
                 if remaining_count > 0:
                     console.print(
@@ -278,6 +282,43 @@ def convert(
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
+
+
+@app.command("embed-art")
+def embed_art(
+    path: Annotated[Path, typer.Argument(help="Path to album folder")],
+) -> None:
+    """Embed cover artwork into FLAC files."""
+    if not path.exists():
+        console.print(f"[red]Path does not exist: {path}[/red]")
+        raise typer.Exit(1)
+
+    if not path.is_dir():
+        console.print(f"[red]Path must be a directory: {path}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Embedding artwork: {path}[/cyan]")
+
+    result = embed_artwork(path)
+
+    if not result["cover_found"]:
+        console.print("[yellow]No cover image found in album folder.[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"  Cover: {result['cover_path'].name}")
+    console.print(f"  Tracks processed: {result['tracks_processed']}")
+
+    original_kb = result["original_size"] / 1024
+    embedded_kb = result["embedded_size"] / 1024
+
+    if result["was_resized"]:
+        console.print(
+            f"  [yellow]Resized:[/yellow] {original_kb:.1f} KB → {embedded_kb:.1f} KB"
+        )
+    else:
+        console.print(f"  Size: {embedded_kb:.1f} KB")
+
+    console.print("[green]Artwork embedded successfully![/green]")
 
 
 @ignore_app.command("add")
