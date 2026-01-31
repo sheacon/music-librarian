@@ -7,8 +7,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .config import LIBRARY_PATH
+from .config import LASTFM_API_KEY, LIBRARY_PATH
 from .convert import convert_album_to_aac
+from .lastfm import rank_albums_by_popularity
 from .library import scan_library
 from .normalize import normalize_album
 from .qobuz import discover_missing_albums, download_album
@@ -64,6 +65,10 @@ def discover(
         Optional[Path],
         typer.Option("--path", "-p", help="Path to music library"),
     ] = None,
+    all_albums: Annotated[
+        bool,
+        typer.Option("--all", help="Show all albums instead of top 3"),
+    ] = False,
 ) -> None:
     """Find new albums by artists in the library."""
     path = library_path or LIBRARY_PATH
@@ -88,6 +93,13 @@ def discover(
             return
         artists = {normalized: artists[normalized]}
 
+    # Check if Last.fm API key is configured for ranking
+    has_lastfm = bool(LASTFM_API_KEY)
+    if not has_lastfm and not all_albums:
+        console.print(
+            "[dim]Tip: Set LASTFM_API_KEY env var to rank albums by popularity[/dim]"
+        )
+
     for artist_data in sorted(artists.values(), key=lambda a: a.name.lower()):
         console.print(f"\n[cyan]Checking {artist_data.canonical_name}...[/cyan]")
 
@@ -97,8 +109,27 @@ def discover(
             missing = discover_missing_albums(artist_data.canonical_name, existing)
 
             if missing:
-                console.print(f"  [green]Found {len(missing)} new album(s):[/green]")
-                for album in sorted(missing, key=lambda x: x.year):
+                total_count = len(missing)
+                display_albums = missing
+                remaining_count = 0
+
+                # Rank and limit if more than 3 albums and not showing all
+                if total_count > 3 and not all_albums:
+                    if has_lastfm:
+                        # Rank by Last.fm popularity
+                        ranked = rank_albums_by_popularity(
+                            missing, artist_data.canonical_name
+                        )
+                        display_albums = [album for album, _ in ranked[:3]]
+                    else:
+                        # Fall back to showing first 3 by year
+                        display_albums = sorted(missing, key=lambda x: x.year)[:3]
+                    remaining_count = total_count - 3
+
+                console.print(f"  [green]Found {total_count} new album(s):[/green]")
+
+                # Sort display albums by year for output
+                for album in sorted(display_albums, key=lambda x: x.year):
                     fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
                     if album.standard_id:
                         # This is a hi-fi version that will have bonus tracks removed
@@ -111,6 +142,11 @@ def discover(
                             f"    [{album.year}] {album.title} [dim]({fidelity})[/dim]"
                         )
                     console.print(f"      [dim]{album.url}[/dim]")
+
+                if remaining_count > 0:
+                    console.print(
+                        f"    [dim]...and {remaining_count} more (use --all to see all)[/dim]"
+                    )
             else:
                 console.print("  [dim]No new albums found.[/dim]")
         except Exception as e:
