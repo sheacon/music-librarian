@@ -19,10 +19,6 @@ def normalize_album(album_path: Path) -> bool:
     if not album_path.is_dir():
         raise ValueError(f"Album path must be a directory: {album_path}")
 
-    result = subprocess.run(
-        ["rsgain", "easy", str(album_path)],
-        capture_output=True,
-        text=True,
-    )
+    result = subprocess.run(["rsgain", "easy", str(album_path)])
 
     return result.returncode == 0

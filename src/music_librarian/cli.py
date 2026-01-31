@@ -193,27 +193,14 @@ def discover(
 
 @app.command()
 def download(
-    url_or_id: Annotated[str, typer.Argument(help="Qobuz album URL or album ID")],
-    artist: Annotated[
-        Optional[str],
-        typer.Option("--artist", "-a", help="Artist name for folder structure"),
-    ] = None,
-    library_path: Annotated[
-        Optional[Path],
-        typer.Option("--path", "-p", help="Path to music library"),
-    ] = None,
+    album_id: Annotated[str, typer.Argument(help="Qobuz album ID")],
 ) -> None:
-    """Download an album or artist discography from Qobuz."""
-    # Convert album ID to full URL if needed
-    if url_or_id.startswith("http"):
-        url = url_or_id
-    else:
-        url = f"https://open.qobuz.com/album/{url_or_id}"
-
-    console.print(f"[cyan]Downloading: {url}[/cyan]")
+    """Download an album from Qobuz."""
+    url = f"https://open.qobuz.com/album/{album_id}"
+    console.print(f"[cyan]Downloading: {album_id}[/cyan]")
 
     try:
-        success, album_path = download_album(url, artist_name=artist, library_path=library_path)
+        success, album_path = download_album(url)
 
         if success:
             console.print("[green]Download complete![/green]")

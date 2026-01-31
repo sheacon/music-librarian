@@ -12,7 +12,7 @@ import httpx
 from mutagen.flac import FLAC
 
 from .config import QOBUZ_CONFIG_PATH
-from .library import get_artist_search_variants, get_letter_for_artist, normalize_artist
+from .library import get_artist_search_variants
 
 
 # Minimum track count to be considered a full album (excludes singles/EPs)
@@ -615,35 +615,19 @@ def normalize_track_metadata(album_path: Path) -> int:
     return modified
 
 
-def download_album(
-    url: str,
-    artist_name: str | None = None,
-    library_path: Path | None = None,
-    album: QobuzAlbum | None = None,
-) -> tuple[bool, Path | None]:
+def download_album(url: str) -> tuple[bool, Path | None]:
     """Download an album using qobuz-dl.
+
+    Downloads to ~/Downloads with folder format: {artist} - [{year}] {album}
+    Then applies post-processing: folder rename, metadata cleanup, artwork, ReplayGain.
 
     Args:
         url: Qobuz album URL.
-        artist_name: Artist name for folder structure. If None, uses default.
-        library_path: Base library path. If None, uses default.
-        album: QobuzAlbum object with metadata (for year override and track cleanup).
 
     Returns:
         Tuple of (success, album_path).
     """
-    from .config import LIBRARY_PATH
-
-    if library_path is None:
-        library_path = LIBRARY_PATH
-
-    # Determine output directory
-    if artist_name:
-        letter = get_letter_for_artist(artist_name)
-        normalized = normalize_artist(artist_name)
-        output_dir = library_path / letter / normalized
-    else:
-        output_dir = None
+    output_dir = Path.home() / "Downloads"
 
     cmd = [
         "qobuz-dl",
@@ -651,59 +635,61 @@ def download_album(
         url,
         "--embed-art",
         "--no-db",
+        "-d", str(output_dir),
+        "--folder-format", "{artist} - [{year}] {album}",
     ]
-
-    if output_dir:
-        cmd.extend(["-d", str(output_dir)])
-        # Use album year if provided, otherwise let qobuz-dl use its default
-        if album and album.year:
-            cmd.extend(["--folder-format", f"[{album.year}] {{album}}"])
-        else:
-            cmd.extend(["--folder-format", "[{year}] {album}"])
 
     result = subprocess.run(cmd)
 
     if result.returncode != 0:
         return False, None
 
-    # Find the downloaded album folder
-    album_path = None
-    if output_dir and album:
-        # Look for folder matching the expected pattern
-        expected_prefix = f"[{album.year}]"
-        for folder in output_dir.iterdir():
-            if folder.is_dir() and folder.name.startswith(expected_prefix):
-                album_path = folder
-                break
+    # Find the most recently modified folder
+    folders = [f for f in output_dir.iterdir() if f.is_dir()]
+    if not folders:
+        return True, None
+    album_path = max(folders, key=lambda f: f.stat().st_mtime)
 
     # Rename folder to strip edition markers
-    if album_path and album:
-        clean_title = _normalize_album_title(album.title).title()
-        clean_name = f"[{album.year}] {clean_title}"
-        if album_path.name != clean_name:
-            new_path = album_path.parent / clean_name
-            if not new_path.exists():
-                album_path.rename(new_path)
-                album_path = new_path
+    flac_files = sorted(album_path.glob("*.flac"))
+    if flac_files:
+        audio = FLAC(flac_files[0])
+        album_title = audio.get("album", [""])[0]
+        album_artist = audio.get("albumartist", [""])[0]
+        date = audio.get("date", [""])[0]
+        year = date[:4] if date else ""
+        clean_title = _strip_edition_markers(album_title)
 
-    # Remove bonus tracks if this is a merged hi-fi/standard album
-    if album_path and album and album.standard_id:
-        remove_bonus_tracks(album_path, album.standard_id)
+        if clean_title and year:
+            clean_name = f"{album_artist} - [{year}] {clean_title}"
+            if album_path.name != clean_name:
+                new_path = album_path.parent / clean_name
+                if not new_path.exists():
+                    album_path.rename(new_path)
+                    album_path = new_path
 
     # Normalize track metadata (artist, album title, track title)
-    if album_path:
-        normalize_track_metadata(album_path)
+    print("Normalizing metadata...", end=" ", flush=True)
+    tracks_modified = normalize_track_metadata(album_path)
+    print(f"done ({tracks_modified} tracks updated)")
 
     # Embed artwork (ensures proper embedding even if qobuz-dl's --embed-art fails)
-    if album_path:
-        from .artwork import embed_artwork
-
-        embed_artwork(album_path)
+    print("Embedding artwork...", end=" ", flush=True)
+    from .artwork import embed_artwork
+    art_result = embed_artwork(album_path)
+    if art_result["cover_found"]:
+        size_kb = art_result["embedded_size"] / 1024
+        if art_result["was_resized"]:
+            orig_kb = art_result["original_size"] / 1024
+            print(f"done (resized {orig_kb:.0f}KB → {size_kb:.0f}KB)")
+        else:
+            print(f"done ({size_kb:.0f}KB)")
+    else:
+        print("skipped (no cover found)")
 
     # Apply ReplayGain normalization
-    if album_path:
-        from .normalize import normalize_album
-
-        normalize_album(album_path)
+    print("Applying ReplayGain...")
+    from .normalize import normalize_album
+    normalize_album(album_path)
 
     return True, album_path
