@@ -168,18 +168,18 @@ def discover(
 
                 for album in display_albums:
                     fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
-                    url = f"https://open.qobuz.com/album/{album.id}"
                     if album.standard_id:
                         # This is a hi-fi version that will have bonus tracks removed
                         console.print(
                             f"    [{album.year}] {album.title} "
-                            f"[magenta]({fidelity}, {album.standard_track_count} tracks)[/magenta]"
+                            f"[magenta]({fidelity}, {album.standard_track_count} tracks)[/magenta] "
+                            f"[dim]id:{album.id}[/dim]"
                         )
                     else:
                         console.print(
-                            f"    [{album.year}] {album.title} [dim]({fidelity})[/dim]"
+                            f"    [{album.year}] {album.title} [dim]({fidelity})[/dim] "
+                            f"[dim]id:{album.id}[/dim]"
                         )
-                    console.print(f"      [blue]{url}[/blue]")
 
                 if remaining_count > 0:
                     console.print(
@@ -193,7 +193,7 @@ def discover(
 
 @app.command()
 def download(
-    url: Annotated[str, typer.Argument(help="Qobuz album or artist URL")],
+    url_or_id: Annotated[str, typer.Argument(help="Qobuz album URL or album ID")],
     artist: Annotated[
         Optional[str],
         typer.Option("--artist", "-a", help="Artist name for folder structure"),
@@ -204,6 +204,12 @@ def download(
     ] = None,
 ) -> None:
     """Download an album or artist discography from Qobuz."""
+    # Convert album ID to full URL if needed
+    if url_or_id.startswith("http"):
+        url = url_or_id
+    else:
+        url = f"https://open.qobuz.com/album/{url_or_id}"
+
     console.print(f"[cyan]Downloading: {url}[/cyan]")
 
     try:
