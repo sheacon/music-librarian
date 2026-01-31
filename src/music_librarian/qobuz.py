@@ -661,7 +661,7 @@ def download_album(
         else:
             cmd.extend(["--folder-format", "[{year}] {album}"])
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd)
 
     if result.returncode != 0:
         return False, None
