@@ -6,6 +6,7 @@ A CLI tool to manage a high-fidelity music library with Qobuz integration. Disco
 
 - **Library scanning** - Index your music collection organized by artist and album
 - **Album discovery** - Find missing albums by artists already in your library via Qobuz
+- **Popularity ranking** - Shows top 3 most popular missing albums (via Last.fm) when many exist
 - **Smart deduplication** - Automatically selects the best version when multiple editions exist:
   - Prefers higher fidelity (bit depth, then sample rate)
   - Uses the original release year (not reissue year)
@@ -103,6 +104,9 @@ music-librarian discover
 
 # Check a specific artist
 music-librarian discover --artist "The Black Keys"
+
+# Show all albums (not just top 3)
+music-librarian discover --artist "The Black Keys" --all
 ```
 
 ```
@@ -114,10 +118,7 @@ Checking Black Keys...
       https://www.qobuz.com/album/0075597947946
     [2019] "Let's Rock" (24bit/48kHz)
       https://www.qobuz.com/album/i2l0ljm2ti0rb
-    [2022] Dropout Boogie (24bit/48kHz)
-      https://www.qobuz.com/album/mukh5gqtoxv7a
-    [2024] Ohio Players (24bit/96kHz)
-      https://www.qobuz.com/album/lgwhj6gb6o87a
+    ...and 4 more (use --all to see all)
 ```
 
 The discover command:
@@ -125,6 +126,8 @@ The discover command:
 - Deduplicates editions (standard, deluxe, remaster) keeping the best fidelity
 - Shows bit depth and sample rate for each album
 - Uses the original release year even for remastered editions
+- When more than 3 albums found, shows top 3 by popularity (requires Last.fm API key)
+- Use `--all` to see complete list
 
 ### Download Albums
 
@@ -171,6 +174,16 @@ Default paths are defined in `src/music_librarian/config.py`:
 | `AAC_OUTPUT_PATH` | `~/Downloads/qobuz-dl/transcoded` | Where AAC conversions are saved |
 | `QOBUZ_CONFIG_PATH` | `~/.config/qobuz-dl/config.ini` | qobuz-dl credentials |
 
+### Last.fm API Key (Optional)
+
+To rank albums by popularity, get a free API key from [Last.fm](https://www.last.fm/api/account/create) and set it:
+
+```bash
+export LASTFM_API_KEY="your_api_key_here"
+```
+
+Without an API key, albums are shown in chronological order.
+
 ## How Deduplication Works
 
 When multiple editions of an album exist on Qobuz (standard, deluxe, remaster, etc.), the tool intelligently selects the best version:
@@ -200,8 +213,9 @@ The tool will:
 music-librarian scan [--path PATH]
     List all artists and albums in the library.
 
-music-librarian discover [--artist NAME] [--path PATH]
+music-librarian discover [--artist NAME] [--path PATH] [--all]
     Find new albums by artists in the library.
+    Shows top 3 by popularity; use --all for complete list.
 
 music-librarian download URL [--artist NAME] [--path PATH]
     Download an album from Qobuz.
