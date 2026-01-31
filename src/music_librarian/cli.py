@@ -9,15 +9,27 @@ from rich.table import Table
 
 from .config import LASTFM_API_KEY, LIBRARY_PATH
 from .convert import convert_album_to_aac
+from .ignore import (
+    add_ignored_album,
+    add_ignored_artist,
+    get_ignored_albums,
+    get_ignored_artists,
+    is_album_ignored,
+    remove_ignored_album,
+    remove_ignored_artist,
+)
 from .lastfm import rank_albums_by_popularity
 from .library import scan_library
 from .normalize import normalize_album
-from .qobuz import discover_missing_albums, download_album
+from .qobuz import _normalize_album_title, discover_missing_albums, download_album
 
 app = typer.Typer(
     name="music-librarian",
     help="CLI tool to manage a music library with Qobuz integration.",
 )
+ignore_app = typer.Typer(help="Manage ignored artists and albums.")
+app.add_typer(ignore_app, name="ignore")
+
 console = Console()
 
 
@@ -100,13 +112,33 @@ def discover(
             "[dim]Tip: Set LASTFM_API_KEY env var to rank albums by popularity[/dim]"
         )
 
+    from .ignore import is_artist_ignored
+
     for artist_data in sorted(artists.values(), key=lambda a: a.name.lower()):
+        # Skip ignored artists
+        if is_artist_ignored(artist_data.canonical_name) or is_artist_ignored(artist_data.name):
+            continue
+
         console.print(f"\n[cyan]Checking {artist_data.canonical_name}...[/cyan]")
 
         existing = [(a.year, a.title) for a in artist_data.albums]
 
         try:
             missing = discover_missing_albums(artist_data.canonical_name, existing)
+
+            # Filter out ignored albums (check both canonical name and "The X" variant)
+            def album_is_ignored(album):
+                names_to_check = [artist_data.canonical_name, artist_data.name]
+                # Also check with "The " prefix
+                names_to_check.append(f"The {artist_data.canonical_name}")
+                titles_to_check = [album.title, _normalize_album_title(album.title)]
+                for name in names_to_check:
+                    for title in titles_to_check:
+                        if is_album_ignored(name, title):
+                            return True
+                return False
+
+            missing = [album for album in missing if not album_is_ignored(album)]
 
             if missing:
                 total_count = len(missing)
@@ -246,6 +278,69 @@ def convert(
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
+
+
+@ignore_app.command("add")
+def ignore_add(
+    artist: Annotated[str, typer.Argument(help="Artist name")],
+    album: Annotated[
+        Optional[str],
+        typer.Argument(help="Album title (if omitting, ignores entire artist)"),
+    ] = None,
+) -> None:
+    """Add an artist or album to the ignore list."""
+    if album:
+        if add_ignored_album(artist, album):
+            console.print(f"[green]Ignored album:[/green] {artist} - {album}")
+        else:
+            console.print(f"[yellow]Already ignored:[/yellow] {artist} - {album}")
+    else:
+        if add_ignored_artist(artist):
+            console.print(f"[green]Ignored artist:[/green] {artist}")
+        else:
+            console.print(f"[yellow]Already ignored:[/yellow] {artist}")
+
+
+@ignore_app.command("remove")
+def ignore_remove(
+    artist: Annotated[str, typer.Argument(help="Artist name")],
+    album: Annotated[
+        Optional[str],
+        typer.Argument(help="Album title (if omitting, removes artist from ignore list)"),
+    ] = None,
+) -> None:
+    """Remove an artist or album from the ignore list."""
+    if album:
+        if remove_ignored_album(artist, album):
+            console.print(f"[green]Removed from ignore list:[/green] {artist} - {album}")
+        else:
+            console.print(f"[yellow]Not in ignore list:[/yellow] {artist} - {album}")
+    else:
+        if remove_ignored_artist(artist):
+            console.print(f"[green]Removed from ignore list:[/green] {artist}")
+        else:
+            console.print(f"[yellow]Not in ignore list:[/yellow] {artist}")
+
+
+@ignore_app.command("list")
+def ignore_list() -> None:
+    """Show all ignored artists and albums."""
+    artists = get_ignored_artists()
+    albums = get_ignored_albums()
+
+    if not artists and not albums:
+        console.print("[dim]No ignored artists or albums.[/dim]")
+        return
+
+    if artists:
+        console.print("[bold]Ignored Artists:[/bold]")
+        for artist in sorted(artists, key=str.lower):
+            console.print(f"  {artist}")
+
+    if albums:
+        console.print("\n[bold]Ignored Albums:[/bold]")
+        for entry in sorted(albums, key=lambda x: (x["artist"].lower(), x["album"].lower())):
+            console.print(f"  {entry['artist']} - {entry['album']}")
 
 
 if __name__ == "__main__":
