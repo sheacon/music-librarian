@@ -48,6 +48,46 @@ def get_album_listeners(artist: str, album: str, api_key: str | None = None) -> 
         return 0
 
 
+def get_artist_top_tag(artist: str, api_key: str | None = None) -> str | None:
+    """Get the top tag (genre) for an artist from Last.fm.
+
+    Args:
+        artist: Artist name.
+        api_key: Last.fm API key. If None, uses LASTFM_API_KEY from config/env.
+
+    Returns:
+        Top tag name, or None if not found.
+    """
+    if api_key is None:
+        api_key = LASTFM_API_KEY
+
+    if not api_key:
+        return None
+
+    try:
+        with httpx.Client(timeout=10) as client:
+            response = client.get(
+                LASTFM_API_URL,
+                params={
+                    "method": "artist.getTopTags",
+                    "api_key": api_key,
+                    "artist": artist,
+                    "format": "json",
+                },
+            )
+
+            if response.status_code != 200:
+                return None
+
+            data = response.json()
+            tags = data.get("toptags", {}).get("tag", [])
+            if tags and len(tags) > 0:
+                return tags[0].get("name")
+            return None
+    except Exception:
+        return None
+
+
 def rank_albums_by_popularity(
     albums: list,
     artist: str,

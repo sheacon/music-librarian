@@ -615,6 +615,44 @@ def normalize_track_metadata(album_path: Path) -> int:
     return modified
 
 
+def update_genre_from_lastfm(album_path: Path) -> str | None:
+    """Update genre tag using Last.fm artist tags.
+
+    Args:
+        album_path: Path to album folder.
+
+    Returns:
+        The genre that was set, or None if not found.
+    """
+    from .lastfm import get_artist_top_tag
+
+    flac_files = sorted(album_path.glob("*.flac"))
+    if not flac_files:
+        return None
+
+    # Get artist from first track
+    audio = FLAC(flac_files[0])
+    artist = audio.get("albumartist", audio.get("artist", [None]))[0]
+    if not artist:
+        return None
+
+    # Fetch genre from Last.fm
+    genre = get_artist_top_tag(artist)
+    if not genre:
+        return None
+
+    # Capitalize genre nicely (e.g., "rock" -> "Rock", "hip-hop" -> "Hip-Hop")
+    genre = genre.title()
+
+    # Update all tracks
+    for audio_file in flac_files:
+        audio = FLAC(audio_file)
+        audio["genre"] = [genre]
+        audio.save()
+
+    return genre
+
+
 def download_album(url: str) -> tuple[bool, Path | None]:
     """Download an album using qobuz-dl.
 
@@ -672,6 +710,14 @@ def download_album(url: str) -> tuple[bool, Path | None]:
     print("Normalizing metadata...", end=" ", flush=True)
     tracks_modified = normalize_track_metadata(album_path)
     print(f"done ({tracks_modified} tracks updated)")
+
+    # Update genre from Last.fm
+    print("Fetching genre...", end=" ", flush=True)
+    genre = update_genre_from_lastfm(album_path)
+    if genre:
+        print(f"done ({genre})")
+    else:
+        print("skipped (not found)")
 
     # Embed artwork (ensures proper embedding even if qobuz-dl's --embed-art fails)
     print("Embedding artwork...", end=" ", flush=True)
