@@ -18,6 +18,44 @@ from .library import get_artist_search_variants, get_letter_for_artist, normaliz
 MIN_ALBUM_TRACKS = 6
 
 
+def _is_compilation_or_live(title: str) -> bool:
+    """Check if album title indicates a compilation or live album."""
+    title_lower = title.lower()
+
+    # Greatest hits / compilation patterns
+    compilation_patterns = [
+        r"\bgreatest\s+hits\b",
+        r"\bbest\s+of\b",
+        r"\bessential\b",
+        r"\bcollection\b",
+        r"\banthology\b",
+        r"\bretrospective\b",
+        r"\bcompilation\b",
+        r"\bcomplete\s+recordings\b",
+        r"\bdefinitive\b",
+        r"\bultimate\b",
+        r"\bsingles\b",
+        r"\bhits\b",
+    ]
+
+    # Live album patterns
+    live_patterns = [
+        r"\blive\b",
+        r"\bin\s+concert\b",
+        r"\bunplugged\b",
+        r"\bacoustic\s+live\b",
+        r"\blive\s+at\b",
+        r"\blive\s+from\b",
+        r"\blive\s+in\b",
+    ]
+
+    for pattern in compilation_patterns + live_patterns:
+        if re.search(pattern, title_lower):
+            return True
+
+    return False
+
+
 def _normalize_album_title(title: str) -> str:
     """Normalize album title for deduplication.
 
@@ -273,6 +311,11 @@ def get_artist_albums(
 
                 # Skip singles/EPs if albums_only is True
                 if albums_only and tracks_count < MIN_ALBUM_TRACKS:
+                    continue
+
+                # Skip compilations and live albums
+                title = album_data.get("title", "")
+                if _is_compilation_or_live(title):
                     continue
 
                 # Parse year from release_date_original (format: YYYY-MM-DD)
