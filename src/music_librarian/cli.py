@@ -128,8 +128,11 @@ def discover(
 
                 console.print(f"  [green]Found {total_count} new album(s):[/green]")
 
-                # Sort display albums by year for output
-                for album in sorted(display_albums, key=lambda x: x.year):
+                # When showing all, sort by year; when showing top 3, keep popularity order
+                if all_albums:
+                    display_albums = sorted(display_albums, key=lambda x: x.year)
+
+                for album in display_albums:
                     fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
                     if album.standard_id:
                         # This is a hi-fi version that will have bonus tracks removed
