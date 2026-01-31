@@ -144,7 +144,6 @@ def discover(
                         console.print(
                             f"    [{album.year}] {album.title} [dim]({fidelity})[/dim]"
                         )
-                    console.print(f"      [dim]{album.url}[/dim]")
 
                 if remaining_count > 0:
                     console.print(
