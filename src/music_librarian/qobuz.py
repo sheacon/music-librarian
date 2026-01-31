@@ -73,6 +73,7 @@ def _normalize_album_title(title: str) -> str:
 
     # Remove common edition markers (in parentheses or brackets)
     edition_patterns = [
+        # Parenthetical edition markers
         r"\s*\([^)]*deluxe[^)]*\)",
         r"\s*\([^)]*remaster[^)]*\)",
         r"\s*\([^)]*expanded[^)]*\)",
@@ -81,19 +82,33 @@ def _normalize_album_title(title: str) -> str:
         r"\s*\([^)]*edition[^)]*\)",
         r"\s*\([^)]*version[^)]*\)",
         r"\s*\([^)]*bonus[^)]*\)",
+        r"\s*\([^)]*release[^)]*\)",  # (US Release), (UK Release), etc.
+        r"\s*\(explicit\)",
+        r"\s*\(clean\)",
+        r"\s*\(stereo\)",
+        r"\s*\(mono\)",
+        r"\s*\(and more\)",
+        # Bracketed edition markers
         r"\s*\[[^\]]*deluxe[^\]]*\]",
         r"\s*\[[^\]]*remaster[^\]]*\]",
         r"\s*\[[^\]]*edition[^\]]*\]",
+        r"\s*\[[^\]]*super\s+deluxe[^\]]*\]",
+        # Trailing edition markers
         r"\s*deluxe\s*edition\s*$",
         r"\s*remastered\s*$",
         r"\s*-\s*remaster\s*$",
+        r"\s*\.\.\.and\s+more\s*$",
+        r"\s*\(white\s+album\)",  # Beatles-specific subtitle
     ]
     for pattern in edition_patterns:
         normalized = re.sub(pattern, "", normalized, flags=re.IGNORECASE)
 
+    # Normalize "&" to "and"
+    normalized = normalized.replace("&", "and")
+
     # Normalize punctuation for matching
-    # Replace colons, apostrophes, and similar with spaces
-    normalized = re.sub(r"[:'`']", " ", normalized)
+    # Replace colons, apostrophes (ASCII and Unicode), commas, and similar with spaces
+    normalized = re.sub(r"[:'`'.,\u2018\u2019\u201c\u201d]", " ", normalized)
 
     # Collapse multiple spaces
     normalized = re.sub(r"\s+", " ", normalized)
@@ -101,13 +116,19 @@ def _normalize_album_title(title: str) -> str:
     return normalized.strip()
 
 
+def _is_clean_version(title: str) -> bool:
+    """Check if album title indicates a clean/censored version."""
+    return "(clean)" in title.lower()
+
+
 def _deduplicate_albums(albums: list["QobuzAlbum"]) -> list["QobuzAlbum"]:
     """Deduplicate albums, merging standard edition info with hi-fi versions.
 
     Groups albums by normalized_title, then:
-    1. Finds the "standard" edition (earliest year, fewest tracks)
-    2. Finds the "best fidelity" edition (highest bit depth, then sample rate)
-    3. If they differ and hi-fi has more tracks: use hi-fi URL but standard's
+    1. Filters out clean versions if explicit/regular versions exist
+    2. Finds the "standard" edition (earliest year, fewest tracks)
+    3. Finds the "best fidelity" edition (highest bit depth, then sample rate)
+    4. If they differ and hi-fi has more tracks: use hi-fi URL but standard's
        year, and mark for track cleanup after download
     """
     from collections import defaultdict
@@ -120,6 +141,15 @@ def _deduplicate_albums(albums: list["QobuzAlbum"]) -> list["QobuzAlbum"]:
 
     result = []
     for group in groups.values():
+        if len(group) == 1:
+            result.append(group[0])
+            continue
+
+        # Filter out clean versions if non-clean versions exist
+        non_clean = [a for a in group if not _is_clean_version(a.title)]
+        if non_clean:
+            group = non_clean
+
         if len(group) == 1:
             result.append(group[0])
             continue
