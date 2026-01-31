@@ -1,0 +1,20 @@
+[project]
+name = "music-librarian"
+version = "0.1.0"
+description = "CLI tool to manage a music library with Qobuz integration"
+requires-python = ">=3.10"
+dependencies = [
+    "typer[all]>=0.9",
+    "httpx>=0.25",
+    "mutagen>=1.47",
+]
+
+[project.scripts]
+music-librarian = "music_librarian.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+sources = ["src"]
