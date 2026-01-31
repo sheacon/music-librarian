@@ -36,6 +36,12 @@ def _is_compilation_or_live(title: str) -> bool:
         r"\bultimate\b",
         r"\bsingles\b",
         r"\bhits\b",
+        r"\bfavorites\b",
+        r"\brarities\b",
+        r"\bouttakes\b",
+        r"\bbox\s*set\b",
+        r"\bbox\b.*\bset\b",
+        r"\bthe\s+.+\s+box\s*$",  # "The ... Box" at end of title
     ]
 
     # Live album patterns
@@ -47,6 +53,8 @@ def _is_compilation_or_live(title: str) -> bool:
         r"\blive\s+at\b",
         r"\blive\s+from\b",
         r"\blive\s+in\b",
+        r"\bstop\s+making\s+sense\b",  # Famous Talking Heads concert film
+        r"\bname\s+of\s+this\s+band\b",  # "The Name of This Band Is..." live album
     ]
 
     for pattern in compilation_patterns + live_patterns:
@@ -59,23 +67,37 @@ def _is_compilation_or_live(title: str) -> bool:
 def _normalize_album_title(title: str) -> str:
     """Normalize album title for deduplication.
 
-    Strips trailing whitespace, edition markers, etc.
+    Strips trailing whitespace, edition markers, and normalizes punctuation.
     """
     normalized = title.lower().strip()
-    # Remove common edition markers
-    patterns = [
-        r"\s*\(deluxe[^)]*\)",
-        r"\s*\(remaster[^)]*\)",
-        r"\s*\(expanded[^)]*\)",
-        r"\s*\(anniversary[^)]*\)",
-        r"\s*\(special[^)]*\)",
-        r"\s*\[deluxe[^\]]*\]",
-        r"\s*\[remaster[^\]]*\]",
+
+    # Remove common edition markers (in parentheses or brackets)
+    edition_patterns = [
+        r"\s*\([^)]*deluxe[^)]*\)",
+        r"\s*\([^)]*remaster[^)]*\)",
+        r"\s*\([^)]*expanded[^)]*\)",
+        r"\s*\([^)]*anniversary[^)]*\)",
+        r"\s*\([^)]*special[^)]*\)",
+        r"\s*\([^)]*edition[^)]*\)",
+        r"\s*\([^)]*version[^)]*\)",
+        r"\s*\([^)]*bonus[^)]*\)",
+        r"\s*\[[^\]]*deluxe[^\]]*\]",
+        r"\s*\[[^\]]*remaster[^\]]*\]",
+        r"\s*\[[^\]]*edition[^\]]*\]",
         r"\s*deluxe\s*edition\s*$",
         r"\s*remastered\s*$",
+        r"\s*-\s*remaster\s*$",
     ]
-    for pattern in patterns:
+    for pattern in edition_patterns:
         normalized = re.sub(pattern, "", normalized, flags=re.IGNORECASE)
+
+    # Normalize punctuation for matching
+    # Replace colons, apostrophes, and similar with spaces
+    normalized = re.sub(r"[:'`']", " ", normalized)
+
+    # Collapse multiple spaces
+    normalized = re.sub(r"\s+", " ", normalized)
+
     return normalized.strip()
 
 
