@@ -521,6 +521,15 @@ def remove_bonus_tracks(
             audio_file.unlink()
             removed.append(audio_file)
 
+    # Update track total in remaining files
+    if removed:
+        remaining_files = sorted(album_path.glob("*.flac"))
+        track_total = str(len(remaining_files))
+        for audio_file in remaining_files:
+            audio = FLAC(audio_file)
+            audio["tracktotal"] = [track_total]
+            audio.save()
+
     return removed
 
 
@@ -561,6 +570,44 @@ def _strip_edition_markers(title: str) -> str:
     return result.strip()
 
 
+def _extract_edition_markers(title: str) -> str | None:
+    """Extract edition markers from a title.
+
+    Returns the edition marker text (e.g., "Deluxe Edition") or None if not found.
+    """
+    # Edition markers in parentheses or brackets
+    patterns = [
+        r"\s*\(([^)]*deluxe[^)]*)\)",
+        r"\s*\(([^)]*remaster[^)]*)\)",
+        r"\s*\(([^)]*expanded[^)]*)\)",
+        r"\s*\(([^)]*anniversary[^)]*)\)",
+        r"\s*\(([^)]*special[^)]*)\)",
+        r"\s*\(([^)]*edition[^)]*)\)",
+        r"\s*\(([^)]*version[^)]*)\)",
+        r"\s*\(([^)]*bonus[^)]*)\)",
+        r"\s*\[([^\]]*deluxe[^\]]*)\]",
+        r"\s*\[([^\]]*remaster[^\]]*)\]",
+        r"\s*\[([^\]]*edition[^\]]*)\]",
+        r"\s*\((\d{4}\s*(?:remaster|mix|version)[^)]*)\)",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, title, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+
+    return None
+
+
+def _append_comment(audio: FLAC, new_comment: str) -> None:
+    """Append a comment to the FLAC file's comment tag."""
+    existing = audio.get("comment", [""])[0]
+    if existing:
+        audio["comment"] = [f"{existing}; {new_comment}"]
+    else:
+        audio["comment"] = [new_comment]
+
+
 def normalize_track_metadata(album_path: Path) -> int:
     """Normalize track metadata.
 
@@ -584,19 +631,18 @@ def normalize_track_metadata(album_path: Path) -> int:
         album_artist = audio.get("albumartist", [None])[0]
 
         if artist and album_artist and artist != album_artist:
-            existing_comment = audio.get("comment", [""])[0]
-            if existing_comment:
-                audio["comment"] = [f"{existing_comment}; Original artist: {artist}"]
-            else:
-                audio["comment"] = [f"Original artist: {artist}"]
+            _append_comment(audio, f"Original artist: {artist}")
             audio["artist"] = [album_artist]
             changed = True
 
-        # Strip edition markers from album title
+        # Strip edition markers from album title and save to comment
         album_title = audio.get("album", [None])[0]
         if album_title:
+            edition_marker = _extract_edition_markers(album_title)
             clean_album = _strip_edition_markers(album_title)
             if clean_album != album_title:
+                if edition_marker:
+                    _append_comment(audio, f"Edition: {edition_marker}")
                 audio["album"] = [clean_album]
                 changed = True
 
