@@ -19,6 +19,13 @@ def normalize_album(album_path: Path) -> bool:
     if not album_path.is_dir():
         raise ValueError(f"Album path must be a directory: {album_path}")
 
-    result = subprocess.run(["rsgain", "easy", str(album_path)])
+    # Get all FLAC files in the album folder
+    flac_files = list(album_path.glob("*.flac"))
+    if not flac_files:
+        return True
+
+    # Use custom mode with album gain (-a) and write tags (-s i)
+    cmd = ["rsgain", "custom", "-a", "-s", "i"] + [str(f) for f in flac_files]
+    result = subprocess.run(cmd)
 
     return result.returncode == 0
