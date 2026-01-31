@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
+from mutagen.flac import FLAC
 
 from .config import QOBUZ_CONFIG_PATH
 from .library import get_artist_search_variants, get_letter_for_artist, normalize_artist
@@ -523,6 +524,97 @@ def remove_bonus_tracks(
     return removed
 
 
+def _strip_edition_markers(title: str) -> str:
+    """Strip edition markers from a title while preserving case.
+
+    Removes markers like (Deluxe Edition), (Remastered 2023), etc.
+    """
+    result = title
+
+    # Edition markers in parentheses or brackets
+    patterns = [
+        r"\s*\([^)]*deluxe[^)]*\)",
+        r"\s*\([^)]*remaster[^)]*\)",
+        r"\s*\([^)]*expanded[^)]*\)",
+        r"\s*\([^)]*anniversary[^)]*\)",
+        r"\s*\([^)]*special[^)]*\)",
+        r"\s*\([^)]*edition[^)]*\)",
+        r"\s*\([^)]*version[^)]*\)",
+        r"\s*\([^)]*bonus[^)]*\)",
+        r"\s*\([^)]*release[^)]*\)",
+        r"\s*\(explicit\)",
+        r"\s*\(clean\)",
+        r"\s*\(stereo\)",
+        r"\s*\(mono\)",
+        r"\s*\(and more\)",
+        r"\s*\[[^\]]*deluxe[^\]]*\]",
+        r"\s*\[[^\]]*remaster[^\]]*\]",
+        r"\s*\[[^\]]*edition[^\]]*\]",
+        r"\s*\[[^\]]*super\s+deluxe[^\]]*\]",
+        r"\s*-\s*remaster(ed)?\s*$",
+        r"\s*\(\d{4}\s*(remaster|mix|version)[^)]*\)",
+    ]
+
+    for pattern in patterns:
+        result = re.sub(pattern, "", result, flags=re.IGNORECASE)
+
+    return result.strip()
+
+
+def normalize_track_metadata(album_path: Path) -> int:
+    """Normalize track metadata.
+
+    For each FLAC file:
+    - If Artist differs from Album Artist, stores original in Comment and overwrites
+    - Strips edition markers from Album and Title tags
+
+    Args:
+        album_path: Path to album folder.
+
+    Returns:
+        Number of tracks modified.
+    """
+    modified = 0
+    for audio_file in sorted(album_path.glob("*.flac")):
+        audio = FLAC(audio_file)
+        changed = False
+
+        # Normalize artist to album artist
+        artist = audio.get("artist", [None])[0]
+        album_artist = audio.get("albumartist", [None])[0]
+
+        if artist and album_artist and artist != album_artist:
+            existing_comment = audio.get("comment", [""])[0]
+            if existing_comment:
+                audio["comment"] = [f"{existing_comment}; Original artist: {artist}"]
+            else:
+                audio["comment"] = [f"Original artist: {artist}"]
+            audio["artist"] = [album_artist]
+            changed = True
+
+        # Strip edition markers from album title
+        album_title = audio.get("album", [None])[0]
+        if album_title:
+            clean_album = _strip_edition_markers(album_title)
+            if clean_album != album_title:
+                audio["album"] = [clean_album]
+                changed = True
+
+        # Strip edition markers from track title
+        track_title = audio.get("title", [None])[0]
+        if track_title:
+            clean_title = _strip_edition_markers(track_title)
+            if clean_title != track_title:
+                audio["title"] = [clean_title]
+                changed = True
+
+        if changed:
+            audio.save()
+            modified += 1
+
+    return modified
+
+
 def download_album(
     url: str,
     artist_name: str | None = None,
@@ -583,14 +675,34 @@ def download_album(
                 album_path = folder
                 break
 
+    # Rename folder to strip edition markers
+    if album_path and album:
+        clean_title = _normalize_album_title(album.title).title()
+        clean_name = f"[{album.year}] {clean_title}"
+        if album_path.name != clean_name:
+            new_path = album_path.parent / clean_name
+            if not new_path.exists():
+                album_path.rename(new_path)
+                album_path = new_path
+
     # Remove bonus tracks if this is a merged hi-fi/standard album
     if album_path and album and album.standard_id:
         remove_bonus_tracks(album_path, album.standard_id)
+
+    # Normalize track metadata (artist, album title, track title)
+    if album_path:
+        normalize_track_metadata(album_path)
 
     # Embed artwork (ensures proper embedding even if qobuz-dl's --embed-art fails)
     if album_path:
         from .artwork import embed_artwork
 
         embed_artwork(album_path)
+
+    # Apply ReplayGain normalization
+    if album_path:
+        from .normalize import normalize_album
+
+        normalize_album(album_path)
 
     return True, album_path
