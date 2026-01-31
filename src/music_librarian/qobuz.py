@@ -587,4 +587,10 @@ def download_album(
     if album_path and album and album.standard_id:
         remove_bonus_tracks(album_path, album.standard_id)
 
+    # Embed artwork (ensures proper embedding even if qobuz-dl's --embed-art fails)
+    if album_path:
+        from .artwork import embed_artwork
+
+        embed_artwork(album_path)
+
     return True, album_path
