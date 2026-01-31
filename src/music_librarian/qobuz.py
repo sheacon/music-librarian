@@ -650,6 +650,7 @@ def download_album(
         "dl",
         url,
         "--embed-art",
+        "--no-db",
     ]
 
     if output_dir:
