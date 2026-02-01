@@ -124,3 +124,40 @@ def is_album_ignored(artist: str, album: str) -> bool:
         entry["artist"].lower() == artist_lower and entry["album"].lower() == album_lower
         for entry in data["albums"]
     )
+
+
+def is_album_ignored_with_variants(
+    artist_name: str,
+    canonical_name: str,
+    album_title: str,
+    normalized_title: str | None = None,
+) -> bool:
+    """Check if an album is ignored, considering artist/title variants.
+
+    Checks all combinations of:
+    - Artist: canonical_name, artist_name, "The {canonical_name}"
+    - Album: album_title, normalized_title (if provided)
+
+    Args:
+        artist_name: The artist's name (may differ from canonical).
+        canonical_name: The canonical artist name used in the library.
+        album_title: The album title as returned by Qobuz.
+        normalized_title: Optional normalized title (without edition markers).
+
+    Returns:
+        True if any combination is in the ignore list.
+    """
+    data = _load_ignore_list()
+
+    artist_variants = {artist_name.lower(), canonical_name.lower(), f"the {canonical_name}".lower()}
+    title_variants = {album_title.lower()}
+    if normalized_title:
+        title_variants.add(normalized_title.lower())
+
+    for entry in data["albums"]:
+        entry_artist = entry["artist"].lower()
+        entry_album = entry["album"].lower()
+        if entry_artist in artist_variants and entry_album in title_variants:
+            return True
+
+    return False

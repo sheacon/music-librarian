@@ -15,8 +15,39 @@ from .config import QOBUZ_CONFIG_PATH
 from .library import get_artist_search_variants
 
 
-# Minimum track count to be considered a full album (excludes singles/EPs)
-MIN_ALBUM_TRACKS = 6
+# Patterns to match edition markers in album/track titles.
+# Patterns with a capture group (group 1) are used by _extract_edition_markers()
+# to save the edition info to comments. All patterns are used for stripping.
+EDITION_MARKER_PATTERNS = [
+    # Parenthetical markers (with capture groups for extraction)
+    r"\s*\(([^)]*deluxe[^)]*)\)",
+    r"\s*\(([^)]*remaster[^)]*)\)",
+    r"\s*\(([^)]*expanded[^)]*)\)",
+    r"\s*\(([^)]*anniversary[^)]*)\)",
+    r"\s*\(([^)]*special[^)]*)\)",
+    r"\s*\(([^)]*edition[^)]*)\)",
+    r"\s*\(([^)]*version[^)]*)\)",
+    r"\s*\(([^)]*bonus[^)]*)\)",
+    r"\s*\((\d{4}\s*(?:remaster|mix|version)[^)]*)\)",  # (2020 Remaster), etc.
+    # Bracketed markers (with capture groups for extraction)
+    r"\s*\[([^\]]*deluxe[^\]]*)\]",
+    r"\s*\[([^\]]*remaster[^\]]*)\]",
+    r"\s*\[([^\]]*edition[^\]]*)\]",
+    r"\s*\[([^\]]*super\s+deluxe[^\]]*)\]",
+    # Markers to strip but not extract (no meaningful edition info)
+    r"\s*\([^)]*release[^)]*\)",  # (US Release), (UK Release), etc.
+    r"\s*\(explicit\)",
+    r"\s*\(clean\)",
+    r"\s*\(stereo\)",
+    r"\s*\(mono\)",
+    r"\s*\(and more\)",
+    r"\s*\(white\s+album\)",  # Beatles-specific subtitle
+    # Trailing markers (no parentheses)
+    r"\s*deluxe\s*edition\s*$",
+    r"\s*remastered\s*$",
+    r"\s*-\s*remaster(?:ed)?\s*$",
+    r"\s*\.\.\.and\s+more\s*$",
+]
 
 
 def _is_compilation_or_live(title: str) -> bool:
@@ -72,36 +103,8 @@ def _normalize_album_title(title: str) -> str:
     """
     normalized = title.lower().strip()
 
-    # Remove common edition markers (in parentheses or brackets)
-    edition_patterns = [
-        # Parenthetical edition markers
-        r"\s*\([^)]*deluxe[^)]*\)",
-        r"\s*\([^)]*remaster[^)]*\)",
-        r"\s*\([^)]*expanded[^)]*\)",
-        r"\s*\([^)]*anniversary[^)]*\)",
-        r"\s*\([^)]*special[^)]*\)",
-        r"\s*\([^)]*edition[^)]*\)",
-        r"\s*\([^)]*version[^)]*\)",
-        r"\s*\([^)]*bonus[^)]*\)",
-        r"\s*\([^)]*release[^)]*\)",  # (US Release), (UK Release), etc.
-        r"\s*\(explicit\)",
-        r"\s*\(clean\)",
-        r"\s*\(stereo\)",
-        r"\s*\(mono\)",
-        r"\s*\(and more\)",
-        # Bracketed edition markers
-        r"\s*\[[^\]]*deluxe[^\]]*\]",
-        r"\s*\[[^\]]*remaster[^\]]*\]",
-        r"\s*\[[^\]]*edition[^\]]*\]",
-        r"\s*\[[^\]]*super\s+deluxe[^\]]*\]",
-        # Trailing edition markers
-        r"\s*deluxe\s*edition\s*$",
-        r"\s*remastered\s*$",
-        r"\s*-\s*remaster\s*$",
-        r"\s*\.\.\.and\s+more\s*$",
-        r"\s*\(white\s+album\)",  # Beatles-specific subtitle
-    ]
-    for pattern in edition_patterns:
+    # Remove edition markers
+    for pattern in EDITION_MARKER_PATTERNS:
         normalized = re.sub(pattern, "", normalized, flags=re.IGNORECASE)
 
     # Normalize "&" to "and"
@@ -360,16 +363,19 @@ def get_artist_albums(
                 if album_data.get("artist", {}).get("id") != int(artist_id):
                     continue
 
-                tracks_count = album_data.get("tracks_count", 0) or 0
-
                 # Skip singles/EPs if albums_only is True
-                if albums_only and tracks_count < MIN_ALBUM_TRACKS:
-                    continue
+                # Qobuz uses product_type or release_type: "single", "ep", "epmini"
+                if albums_only:
+                    release_type = album_data.get("product_type") or album_data.get("release_type") or ""
+                    if release_type.lower() in ("single", "ep", "epmini"):
+                        continue
 
                 # Skip compilations and live albums
                 title = album_data.get("title", "")
                 if _is_compilation_or_live(title):
                     continue
+
+                tracks_count = album_data.get("tracks_count", 0) or 0
 
                 # Parse year from release_date_original (format: YYYY-MM-DD)
                 release_date = album_data.get("release_date_original", "")
@@ -539,34 +545,8 @@ def _strip_edition_markers(title: str) -> str:
     Removes markers like (Deluxe Edition), (Remastered 2023), etc.
     """
     result = title
-
-    # Edition markers in parentheses or brackets
-    patterns = [
-        r"\s*\([^)]*deluxe[^)]*\)",
-        r"\s*\([^)]*remaster[^)]*\)",
-        r"\s*\([^)]*expanded[^)]*\)",
-        r"\s*\([^)]*anniversary[^)]*\)",
-        r"\s*\([^)]*special[^)]*\)",
-        r"\s*\([^)]*edition[^)]*\)",
-        r"\s*\([^)]*version[^)]*\)",
-        r"\s*\([^)]*bonus[^)]*\)",
-        r"\s*\([^)]*release[^)]*\)",
-        r"\s*\(explicit\)",
-        r"\s*\(clean\)",
-        r"\s*\(stereo\)",
-        r"\s*\(mono\)",
-        r"\s*\(and more\)",
-        r"\s*\[[^\]]*deluxe[^\]]*\]",
-        r"\s*\[[^\]]*remaster[^\]]*\]",
-        r"\s*\[[^\]]*edition[^\]]*\]",
-        r"\s*\[[^\]]*super\s+deluxe[^\]]*\]",
-        r"\s*-\s*remaster(ed)?\s*$",
-        r"\s*\(\d{4}\s*(remaster|mix|version)[^)]*\)",
-    ]
-
-    for pattern in patterns:
+    for pattern in EDITION_MARKER_PATTERNS:
         result = re.sub(pattern, "", result, flags=re.IGNORECASE)
-
     return result.strip()
 
 
@@ -574,28 +554,12 @@ def _extract_edition_markers(title: str) -> str | None:
     """Extract edition markers from a title.
 
     Returns the edition marker text (e.g., "Deluxe Edition") or None if not found.
+    Only extracts from patterns that have a capture group (meaningful edition info).
     """
-    # Edition markers in parentheses or brackets
-    patterns = [
-        r"\s*\(([^)]*deluxe[^)]*)\)",
-        r"\s*\(([^)]*remaster[^)]*)\)",
-        r"\s*\(([^)]*expanded[^)]*)\)",
-        r"\s*\(([^)]*anniversary[^)]*)\)",
-        r"\s*\(([^)]*special[^)]*)\)",
-        r"\s*\(([^)]*edition[^)]*)\)",
-        r"\s*\(([^)]*version[^)]*)\)",
-        r"\s*\(([^)]*bonus[^)]*)\)",
-        r"\s*\[([^\]]*deluxe[^\]]*)\]",
-        r"\s*\[([^\]]*remaster[^\]]*)\]",
-        r"\s*\[([^\]]*edition[^\]]*)\]",
-        r"\s*\((\d{4}\s*(?:remaster|mix|version)[^)]*)\)",
-    ]
-
-    for pattern in patterns:
+    for pattern in EDITION_MARKER_PATTERNS:
         match = re.search(pattern, title, flags=re.IGNORECASE)
-        if match:
+        if match and match.lastindex:  # Has a capture group
             return match.group(1).strip()
-
     return None
 
 
