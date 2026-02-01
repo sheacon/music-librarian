@@ -22,7 +22,13 @@ from .ignore import (
 from .lastfm import rank_albums_by_popularity
 from .library import parse_album_folder, scan_library
 from .normalize import normalize_album
-from .qobuz import _normalize_album_title, discover_missing_albums, download_album, process_album
+from .qobuz import (
+    _normalize_album_title,
+    discover_missing_albums,
+    download_album,
+    preview_album_processing,
+    process_album,
+)
 
 app = typer.Typer(
     name="music-librarian",
@@ -240,9 +246,70 @@ def download(
         raise typer.Exit(1)
 
 
+def _print_preview(album_path: Path, preview: dict) -> bool:
+    """Print preview of changes for an album.
+
+    Returns True if any changes would be made.
+    """
+    has_changes = False
+
+    # Metadata changes
+    if preview["metadata_changes"]:
+        has_changes = True
+        console.print("  [yellow]Metadata:[/yellow]")
+        for item in preview["metadata_changes"]:
+            console.print(f"    {item['file']}:")
+            for change in item["changes"]:
+                console.print(f"      {change}")
+
+    # Genre
+    if preview["genre"]["would_fetch"]:
+        has_changes = True
+        console.print("  [yellow]Genre:[/yellow] would fetch from Last.fm")
+    elif preview["genre"]["current"]:
+        console.print(f"  [dim]Genre:[/dim] {preview['genre']['current']} (already set)")
+
+    # Lyrics
+    if preview["lyrics"]["missing"] > 0:
+        has_changes = True
+        console.print(
+            f"  [yellow]Lyrics:[/yellow] {preview['lyrics']['missing']} tracks missing, "
+            f"{preview['lyrics']['have']} already have"
+        )
+    elif preview["lyrics"]["have"] > 0:
+        console.print(f"  [dim]Lyrics:[/dim] all {preview['lyrics']['have']} tracks have lyrics")
+
+    # Artwork
+    if preview["artwork"]["found"]:
+        if not preview["artwork"]["embedded"]:
+            has_changes = True
+            msg = f"  [yellow]Artwork:[/yellow] would embed {preview['artwork']['path']}"
+            if preview["artwork"]["needs_resize"]:
+                size_kb = preview["artwork"]["current_size"] / 1024
+                msg += f" (resize from {size_kb:.0f}KB)"
+            console.print(msg)
+        else:
+            console.print(f"  [dim]Artwork:[/dim] already embedded")
+    else:
+        console.print("  [dim]Artwork:[/dim] no cover image found")
+
+    # ReplayGain
+    if not preview["replaygain"]["has_tags"]:
+        has_changes = True
+        console.print("  [yellow]ReplayGain:[/yellow] would apply normalization")
+    else:
+        console.print("  [dim]ReplayGain:[/dim] already has tags")
+
+    return has_changes
+
+
 @app.command()
 def process(
     path: Annotated[Path, typer.Argument(help="Path to album or parent directory")],
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Preview changes without applying them"),
+    ] = False,
 ) -> None:
     """Apply post-processing to album(s).
 
@@ -253,8 +320,7 @@ def process(
     Examples:
         music-librarian process "/path/to/[2020] Album Name"
         music-librarian process "/path/to/Artist"
-        music-librarian process "/path/to/Alphabetical/B"
-        music-librarian process "/path/to/Alphabetical"
+        music-librarian process --dry-run "/path/to/Alphabetical"
     """
     if not path.exists():
         console.print(f"[red]Path does not exist: {path}[/red]")
@@ -270,26 +336,44 @@ def process(
         console.print(f"[yellow]No album folders found under: {path}[/yellow]")
         raise typer.Exit(1)
 
-    console.print(f"[cyan]Found {len(albums)} album(s) to process[/cyan]\n")
+    if dry_run:
+        console.print(f"[cyan]Previewing {len(albums)} album(s)...[/cyan]\n")
+        albums_with_changes = 0
 
-    succeeded = 0
-    failed = 0
+        for album_path in albums:
+            console.print(f"[bold]{album_path.parent.name} / {album_path.name}[/bold]")
+            try:
+                preview = preview_album_processing(album_path)
+                if _print_preview(album_path, preview):
+                    albums_with_changes += 1
+                else:
+                    console.print("  [green]No changes needed[/green]")
+            except Exception as e:
+                console.print(f"  [red]Error: {e}[/red]")
+            console.print()
 
-    for album_path in albums:
-        console.print(f"[bold]{album_path.parent.name} / {album_path.name}[/bold]")
-        try:
-            process_album(album_path)
-            console.print("[green]  Done[/green]\n")
-            succeeded += 1
-        except Exception as e:
-            console.print(f"[red]  Error: {e}[/red]\n")
-            failed += 1
-
-    console.print(f"[cyan]Processed {succeeded} album(s)[/cyan]", end="")
-    if failed:
-        console.print(f"[red], {failed} failed[/red]")
+        console.print(f"[cyan]Summary: {albums_with_changes} of {len(albums)} album(s) have pending changes[/cyan]")
     else:
-        console.print()
+        console.print(f"[cyan]Found {len(albums)} album(s) to process[/cyan]\n")
+
+        succeeded = 0
+        failed = 0
+
+        for album_path in albums:
+            console.print(f"[bold]{album_path.parent.name} / {album_path.name}[/bold]")
+            try:
+                process_album(album_path)
+                console.print("[green]  Done[/green]\n")
+                succeeded += 1
+            except Exception as e:
+                console.print(f"[red]  Error: {e}[/red]\n")
+                failed += 1
+
+        console.print(f"[cyan]Processed {succeeded} album(s)[/cyan]", end="")
+        if failed:
+            console.print(f"[red], {failed} failed[/red]")
+        else:
+            console.print()
 
 
 @app.command()
