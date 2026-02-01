@@ -9,6 +9,7 @@ dependencies = [
     "mutagen>=1.47",
     "Pillow>=10.0",
     "beautifulsoup4>=4.12",
+    "python-dotenv>=1.0",
 ]
 
 [project.scripts]

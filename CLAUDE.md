@@ -71,5 +71,7 @@ Artists with "The" prefix are stored without it (e.g., "The Beatles" → `B/Beat
 
 ## Environment Variables
 
+API keys can be set in a `.env` file (copy from `.env.example`):
+
 - `LASTFM_API_KEY` - Enables genre lookup during post-processing (optional)
 - `GENIUS_API_KEY` - Enables Genius lyrics fallback (optional)
