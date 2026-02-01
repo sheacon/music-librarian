@@ -128,7 +128,7 @@ The discover command:
 - Deduplicates editions (standard, deluxe, remaster) keeping the best fidelity
 - Shows bit depth and sample rate for each album
 - Uses the original release year even for remastered editions
-- When more than 3 albums found, shows top 3 by popularity (requires Last.fm API key)
+- When more than 3 albums found, shows top 3 by Qobuz popularity
 - Use `--all` to see complete list
 
 ### Download Albums
@@ -204,13 +204,13 @@ Default paths are defined in `src/music_librarian/config.py`:
 
 ### Last.fm API Key (Optional)
 
-To rank albums by popularity, get a free API key from [Last.fm](https://www.last.fm/api/account/create) and set it:
+For genre lookup during post-processing, get a free API key from [Last.fm](https://www.last.fm/api/account/create) and set it:
 
 ```bash
 export LASTFM_API_KEY="your_api_key_here"
 ```
 
-Without an API key, albums are shown in chronological order.
+Without an API key, genre metadata will not be added to downloaded albums.
 
 ## How Deduplication Works
 

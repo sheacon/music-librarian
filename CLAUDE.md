@@ -44,7 +44,7 @@ music-librarian convert <path>          # Convert to AAC
 - **convert.py** - FFmpeg wrapper for FLAC→AAC conversion using macOS AudioToolbox
 - **artwork.py** - Cover image embedding with automatic resizing (max 2MB)
 - **lyrics.py** - Fetches from LRCLIB (primary) and Genius (fallback)
-- **lastfm.py** - Album popularity ranking and genre lookup for discovery results
+- **lastfm.py** - Genre lookup via Last.fm API for post-processing
 - **ignore.py** - Manages ignore lists for artists/albums (persisted to ~/.config/music-librarian/ignore.json)
 
 ### Key Data Flow
@@ -71,5 +71,5 @@ Artists with "The" prefix are stored without it (e.g., "The Beatles" → `B/Beat
 
 ## Environment Variables
 
-- `LASTFM_API_KEY` - Enables popularity ranking in discovery (optional)
+- `LASTFM_API_KEY` - Enables genre lookup during post-processing (optional)
 - `GENIUS_API_KEY` - Enables Genius lyrics fallback (optional)
