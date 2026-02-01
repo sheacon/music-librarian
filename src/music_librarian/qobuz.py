@@ -728,6 +728,105 @@ def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
     return result
 
 
+def preview_album_processing(album_path: Path) -> dict:
+    """Preview what changes would be made by process_album.
+
+    Analyzes the album without making any changes.
+
+    Args:
+        album_path: Path to album folder.
+
+    Returns:
+        Dict with preview information for each processing step.
+    """
+    from .artwork import find_cover_image, MAX_IMAGE_SIZE
+
+    result = {
+        "tracks": 0,
+        "metadata_changes": [],
+        "genre": {"current": None, "would_fetch": False},
+        "lyrics": {"have": 0, "missing": 0},
+        "artwork": {"found": False, "embedded": False, "needs_resize": False},
+        "replaygain": {"has_tags": False},
+    }
+
+    flac_files = sorted(album_path.glob("*.flac"))
+    result["tracks"] = len(flac_files)
+
+    if not flac_files:
+        return result
+
+    track_total = str(len(flac_files))
+
+    for audio_file in flac_files:
+        audio = FLAC(audio_file)
+        changes = []
+
+        # Check track total
+        current_total = audio.get("tracktotal", [None])[0]
+        if current_total != track_total:
+            changes.append(f"tracktotal: {current_total} → {track_total}")
+
+        # Check artist normalization
+        artist = audio.get("artist", [None])[0]
+        album_artist = audio.get("albumartist", [None])[0]
+        if artist and album_artist and artist != album_artist:
+            changes.append(f"artist: \"{artist}\" → \"{album_artist}\"")
+
+        # Check album title edition markers
+        album_title = audio.get("album", [None])[0]
+        if album_title:
+            clean_album = _strip_edition_markers(album_title)
+            if clean_album != album_title:
+                changes.append(f"album: \"{album_title}\" → \"{clean_album}\"")
+
+        # Check track title edition markers
+        track_title = audio.get("title", [None])[0]
+        if track_title:
+            clean_title = _strip_edition_markers(track_title)
+            if clean_title != track_title:
+                changes.append(f"title: \"{track_title}\" → \"{clean_title}\"")
+
+        if changes:
+            result["metadata_changes"].append({
+                "file": audio_file.name,
+                "changes": changes,
+            })
+
+        # Check lyrics (only need to check once per track)
+        if audio.get("lyrics"):
+            result["lyrics"]["have"] += 1
+        else:
+            result["lyrics"]["missing"] += 1
+
+        # Check ReplayGain (only need to check first track)
+        if audio_file == flac_files[0]:
+            if audio.get("replaygain_album_gain"):
+                result["replaygain"]["has_tags"] = True
+
+    # Check genre (from first track)
+    first_audio = FLAC(flac_files[0])
+    current_genre = first_audio.get("genre", [None])[0]
+    result["genre"]["current"] = current_genre
+    if not current_genre:
+        result["genre"]["would_fetch"] = True
+
+    # Check artwork
+    cover_path = find_cover_image(album_path)
+    if cover_path:
+        result["artwork"]["found"] = True
+        result["artwork"]["path"] = cover_path.name
+        # Check if already embedded
+        if first_audio.pictures:
+            result["artwork"]["embedded"] = True
+        # Check if would need resize
+        if cover_path.stat().st_size > MAX_IMAGE_SIZE:
+            result["artwork"]["needs_resize"] = True
+            result["artwork"]["current_size"] = cover_path.stat().st_size
+
+    return result
+
+
 def process_album(album_path: Path) -> None:
     """Apply post-processing to an album.
 
