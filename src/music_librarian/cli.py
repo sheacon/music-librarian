@@ -142,13 +142,6 @@ def discover(
             return
         artists = {normalized: artists[normalized]}
 
-    # Check if Last.fm API key is configured for ranking
-    has_lastfm = bool(LASTFM_API_KEY)
-    if not has_lastfm and not all_albums:
-        console.print(
-            "[dim]Tip: Set LASTFM_API_KEY env var to rank albums by popularity[/dim]"
-        )
-
     from .ignore import is_artist_ignored
 
     for artist_data in sorted(artists.values(), key=lambda a: a.name.lower()):
@@ -181,15 +174,10 @@ def discover(
 
                 # Rank and limit if more than 3 albums and not showing all
                 if total_count > 3 and not all_albums:
-                    if has_lastfm:
-                        # Rank by Last.fm popularity
-                        ranked = rank_albums_by_popularity(
-                            missing, artist_data.canonical_name
-                        )
-                        display_albums = [album for album, _ in ranked[:3]]
-                    else:
-                        # Fall back to showing first 3 by year
-                        display_albums = sorted(missing, key=lambda x: x.year)[:3]
+                    # Sort by Qobuz popularity (descending), then by year (ascending)
+                    display_albums = sorted(
+                        missing, key=lambda x: (-x.popularity, x.year)
+                    )[:3]
                     remaining_count = total_count - 3
 
                 console.print(f"  [green]Found {total_count} new album(s):[/green]")
