@@ -749,59 +749,19 @@ def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
     return result
 
 
-def download_album(url: str) -> tuple[bool, Path | None]:
-    """Download an album using qobuz-dl.
+def process_album(album_path: Path) -> None:
+    """Apply post-processing to an album.
 
-    Downloads to ~/Downloads with folder format: {artist} - [{year}] {album}
-    Then applies post-processing: folder rename, metadata cleanup, artwork, ReplayGain.
+    Runs all post-processing steps:
+    - Normalize track metadata (artist, album/track titles, edition markers)
+    - Fetch genre from Last.fm
+    - Fetch lyrics from LRCLIB/Genius
+    - Embed artwork
+    - Apply ReplayGain normalization
 
     Args:
-        url: Qobuz album URL.
-
-    Returns:
-        Tuple of (success, album_path).
+        album_path: Path to album folder.
     """
-    output_dir = Path.home() / "Downloads"
-
-    cmd = [
-        "qobuz-dl",
-        "dl",
-        url,
-        "--embed-art",
-        "--no-db",
-        "-d", str(output_dir),
-        "--folder-format", "{artist} - [{year}] {album}",
-    ]
-
-    result = subprocess.run(cmd)
-
-    if result.returncode != 0:
-        return False, None
-
-    # Find the most recently modified folder
-    folders = [f for f in output_dir.iterdir() if f.is_dir()]
-    if not folders:
-        return True, None
-    album_path = max(folders, key=lambda f: f.stat().st_mtime)
-
-    # Rename folder to strip edition markers
-    flac_files = sorted(album_path.glob("*.flac"))
-    if flac_files:
-        audio = FLAC(flac_files[0])
-        album_title = audio.get("album", [""])[0]
-        album_artist = audio.get("albumartist", [""])[0]
-        date = audio.get("date", [""])[0]
-        year = date[:4] if date else ""
-        clean_title = _strip_edition_markers(album_title)
-
-        if clean_title and year:
-            clean_name = f"{album_artist} - [{year}] {clean_title}"
-            if album_path.name != clean_name:
-                new_path = album_path.parent / clean_name
-                if not new_path.exists():
-                    album_path.rename(new_path)
-                    album_path = new_path
-
     # Normalize track metadata (artist, album title, track title)
     print("Normalizing metadata...", end=" ", flush=True)
     tracks_modified = normalize_track_metadata(album_path)
@@ -857,5 +817,62 @@ def download_album(url: str) -> tuple[bool, Path | None]:
         print(f"    Gain:     {gain_info['gain']:8.2f} dB")
     else:
         print("failed")
+
+
+def download_album(url: str) -> tuple[bool, Path | None]:
+    """Download an album using qobuz-dl.
+
+    Downloads to ~/Downloads with folder format: {artist} - [{year}] {album}
+    Then applies post-processing: folder rename, metadata cleanup, artwork, ReplayGain.
+
+    Args:
+        url: Qobuz album URL.
+
+    Returns:
+        Tuple of (success, album_path).
+    """
+    output_dir = Path.home() / "Downloads"
+
+    cmd = [
+        "qobuz-dl",
+        "dl",
+        url,
+        "--embed-art",
+        "--no-db",
+        "-d", str(output_dir),
+        "--folder-format", "{artist} - [{year}] {album}",
+    ]
+
+    result = subprocess.run(cmd)
+
+    if result.returncode != 0:
+        return False, None
+
+    # Find the most recently modified folder
+    folders = [f for f in output_dir.iterdir() if f.is_dir()]
+    if not folders:
+        return True, None
+    album_path = max(folders, key=lambda f: f.stat().st_mtime)
+
+    # Rename folder to strip edition markers
+    flac_files = sorted(album_path.glob("*.flac"))
+    if flac_files:
+        audio = FLAC(flac_files[0])
+        album_title = audio.get("album", [""])[0]
+        album_artist = audio.get("albumartist", [""])[0]
+        date = audio.get("date", [""])[0]
+        year = date[:4] if date else ""
+        clean_title = _strip_edition_markers(album_title)
+
+        if clean_title and year:
+            clean_name = f"{album_artist} - [{year}] {clean_title}"
+            if album_path.name != clean_name:
+                new_path = album_path.parent / clean_name
+                if not new_path.exists():
+                    album_path.rename(new_path)
+                    album_path = new_path
+
+    # Run post-processing
+    process_album(album_path)
 
     return True, album_path

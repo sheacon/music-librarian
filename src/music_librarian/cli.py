@@ -23,7 +23,7 @@ from .ignore import (
 from .lastfm import rank_albums_by_popularity
 from .library import scan_library
 from .normalize import normalize_album
-from .qobuz import _normalize_album_title, discover_missing_albums, download_album
+from .qobuz import _normalize_album_title, discover_missing_albums, download_album, process_album
 
 app = typer.Typer(
     name="music-librarian",
@@ -209,6 +209,33 @@ def download(
         else:
             console.print("[red]Download failed. Check qobuz-dl output for details.[/red]")
             raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def process(
+    path: Annotated[Path, typer.Argument(help="Path to album folder")],
+) -> None:
+    """Apply post-processing to an existing album.
+
+    Runs: metadata normalization, genre lookup, lyrics fetching,
+    artwork embedding, and ReplayGain normalization.
+    """
+    if not path.exists():
+        console.print(f"[red]Path does not exist: {path}[/red]")
+        raise typer.Exit(1)
+
+    if not path.is_dir():
+        console.print(f"[red]Path must be a directory: {path}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Processing: {path.name}[/cyan]")
+
+    try:
+        process_album(path)
+        console.print("[green]Processing complete![/green]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1)
