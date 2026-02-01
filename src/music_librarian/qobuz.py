@@ -178,6 +178,9 @@ def _deduplicate_albums(albums: list["QobuzAlbum"]) -> list["QobuzAlbum"]:
             )
         )
 
+        # Use max popularity from all editions
+        max_popularity = max(a.popularity for a in group)
+
         if is_higher_fidelity and best_fidelity.id != standard.id:
             # Use hi-fi version but with standard's year
             # Mark for track cleanup if hi-fi has more tracks
@@ -190,6 +193,7 @@ def _deduplicate_albums(albums: list["QobuzAlbum"]) -> list["QobuzAlbum"]:
                 tracks_count=best_fidelity.tracks_count,
                 bit_depth=best_fidelity.bit_depth,
                 sample_rate=best_fidelity.sample_rate,
+                popularity=max_popularity,
                 standard_track_count=(
                     standard.tracks_count
                     if best_fidelity.tracks_count > standard.tracks_count
@@ -204,6 +208,8 @@ def _deduplicate_albums(albums: list["QobuzAlbum"]) -> list["QobuzAlbum"]:
             result.append(merged)
         else:
             # Standard edition is best or same fidelity
+            # Update popularity to max from group
+            standard.popularity = max_popularity
             result.append(standard)
 
     return result
@@ -221,6 +227,7 @@ class QobuzAlbum:
     tracks_count: int = 0
     bit_depth: int = 16
     sample_rate: float = 44.1
+    popularity: int = 0  # Qobuz popularity score for ranking
     # For merged albums: standard edition info for post-download cleanup
     standard_track_count: int | None = None  # If set, delete tracks beyond this
     standard_id: str | None = None  # ID of standard edition for track list lookup
@@ -394,6 +401,7 @@ def get_artist_albums(
 
                 bit_depth = album_data.get("maximum_bit_depth", 16) or 16
                 sample_rate = album_data.get("maximum_sampling_rate", 44.1) or 44.1
+                popularity = album_data.get("popularity", 0) or 0
 
                 albums.append(
                     QobuzAlbum(
@@ -405,6 +413,7 @@ def get_artist_albums(
                         tracks_count=tracks_count,
                         bit_depth=bit_depth,
                         sample_rate=sample_rate,
+                        popularity=popularity,
                     )
                 )
 
