@@ -12,6 +12,8 @@ A CLI tool to manage a high-fidelity music library with Qobuz integration. Disco
   - Uses the original release year (not reissue year)
   - Downloads hi-fi deluxe editions but removes bonus tracks to match standard track listing
 - **Downloading** - Download albums from Qobuz using qobuz-dl
+- **Post-processing** - Normalize metadata, fetch genres/lyrics, embed artwork, apply ReplayGain
+- **Bulk processing** - Process existing albums in bulk at any directory level
 - **Volume normalization** - Apply ReplayGain tags using rsgain
 - **Format conversion** - Create AAC 256kbps versions for portable devices
 
@@ -131,15 +133,38 @@ The discover command:
 
 ### Download Albums
 
-Download an album from Qobuz:
+Download an album from Qobuz using the album ID (shown by `discover`):
 
 ```bash
-# Basic download
-music-librarian download "https://www.qobuz.com/album/0075597947786"
-
-# Specify artist for correct folder structure
-music-librarian download "https://www.qobuz.com/album/0075597947786" --artist "The Black Keys"
+music-librarian download 0075597947786
 ```
+
+The download command automatically applies post-processing: metadata normalization, genre lookup, lyrics fetching, artwork embedding, and ReplayGain.
+
+### Process Existing Albums
+
+Apply post-processing to albums already in your library. Supports bulk processing at any directory level:
+
+```bash
+# Process a single album
+music-librarian process "/Volumes/music/Alphabetical/B/Beatles/[1966] Revolver"
+
+# Process all albums by an artist
+music-librarian process "/Volumes/music/Alphabetical/B/Beatles"
+
+# Process all albums for artists starting with B
+music-librarian process "/Volumes/music/Alphabetical/B"
+
+# Process entire library
+music-librarian process "/Volumes/music/Alphabetical"
+```
+
+Post-processing includes:
+- Metadata normalization (artist, album/track titles, edition markers)
+- Genre lookup from Last.fm
+- Lyrics fetching from LRCLIB and Genius
+- Artwork embedding (with automatic resizing if needed)
+- ReplayGain normalization
 
 ### Normalize Volume
 
@@ -217,14 +242,30 @@ music-librarian discover [--artist NAME] [--path PATH] [--all]
     Find new albums by artists in the library.
     Shows top 3 by popularity; use --all for complete list.
 
-music-librarian download URL [--artist NAME] [--path PATH]
-    Download an album from Qobuz.
+music-librarian download ALBUM_ID
+    Download an album from Qobuz and apply post-processing.
+
+music-librarian process PATH
+    Apply post-processing to existing album(s).
+    Accepts album folder, artist folder, letter folder, or library root.
 
 music-librarian normalize PATH
     Apply ReplayGain normalization to an album.
 
 music-librarian convert PATH [--out PATH] [--artist NAME]
     Convert FLAC album to AAC 256kbps.
+
+music-librarian embed-art PATH
+    Embed cover artwork into FLAC files.
+
+music-librarian ignore add ARTIST [ALBUM]
+    Add artist or album to ignore list.
+
+music-librarian ignore remove ARTIST [ALBUM]
+    Remove artist or album from ignore list.
+
+music-librarian ignore list
+    Show all ignored artists and albums.
 ```
 
 ## Dependencies

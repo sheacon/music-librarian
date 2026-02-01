@@ -18,7 +18,7 @@ pip install -e .
 music-librarian scan                    # List library contents
 music-librarian discover --artist "X"   # Find missing albums
 music-librarian download <album_id>     # Download from Qobuz
-music-librarian process <path>          # Post-process existing album
+music-librarian process <path>          # Post-process album(s) - supports bulk
 music-librarian normalize <path>        # Apply ReplayGain tags
 music-librarian convert <path>          # Convert to AAC
 
