@@ -8,7 +8,6 @@ from rich.console import Console
 from rich.table import Table
 
 from .artwork import embed_artwork
-from .clean import clean_album
 from .config import LASTFM_API_KEY, LIBRARY_PATH
 from .convert import convert_album_to_aac
 from .ignore import (
@@ -16,7 +15,7 @@ from .ignore import (
     add_ignored_artist,
     get_ignored_albums,
     get_ignored_artists,
-    is_album_ignored,
+    is_album_ignored_with_variants,
     remove_ignored_album,
     remove_ignored_artist,
 )
@@ -128,19 +127,16 @@ def discover(
         try:
             missing = discover_missing_albums(artist_data.canonical_name, existing)
 
-            # Filter out ignored albums (check both canonical name and "The X" variant)
-            def album_is_ignored(album):
-                names_to_check = [artist_data.canonical_name, artist_data.name]
-                # Also check with "The " prefix
-                names_to_check.append(f"The {artist_data.canonical_name}")
-                titles_to_check = [album.title, _normalize_album_title(album.title)]
-                for name in names_to_check:
-                    for title in titles_to_check:
-                        if is_album_ignored(name, title):
-                            return True
-                return False
-
-            missing = [album for album in missing if not album_is_ignored(album)]
+            # Filter out ignored albums
+            missing = [
+                album for album in missing
+                if not is_album_ignored_with_variants(
+                    artist_data.name,
+                    artist_data.canonical_name,
+                    album.title,
+                    _normalize_album_title(album.title),
+                )
+            ]
 
             if missing:
                 total_count = len(missing)
