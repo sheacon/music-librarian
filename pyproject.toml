@@ -8,6 +8,7 @@ dependencies = [
     "httpx>=0.25",
     "mutagen>=1.47",
     "Pillow>=10.0",
+    "beautifulsoup4>=4.12",
 ]
 
 [project.scripts]
