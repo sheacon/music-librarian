@@ -157,6 +157,9 @@ music-librarian process "/Volumes/music/Alphabetical/B"
 
 # Process entire library
 music-librarian process "/Volumes/music/Alphabetical"
+
+# Preview changes without applying them
+music-librarian process --dry-run "/Volumes/music/Alphabetical"
 ```
 
 Post-processing includes:
@@ -245,9 +248,10 @@ music-librarian discover [--artist NAME] [--path PATH] [--all]
 music-librarian download ALBUM_ID
     Download an album from Qobuz and apply post-processing.
 
-music-librarian process PATH
+music-librarian process PATH [--dry-run]
     Apply post-processing to existing album(s).
     Accepts album folder, artist folder, letter folder, or library root.
+    Use --dry-run (-n) to preview changes without applying them.
 
 music-librarian normalize PATH
     Apply ReplayGain normalization to an album.
