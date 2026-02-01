@@ -699,6 +699,52 @@ def update_genre_from_lastfm(album_path: Path) -> str | None:
     return genre
 
 
+def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
+    """Fetch and embed lyrics for all tracks in an album.
+
+    Tries LRCLIB first, then falls back to Genius if API key is available.
+
+    Args:
+        album_path: Path to album folder.
+
+    Returns:
+        Dict with counts: {"lrclib": n, "genius": n, "not_found": n}
+    """
+    from .config import GENIUS_API_KEY
+    from .lyrics import get_lyrics
+
+    flac_files = sorted(album_path.glob("*.flac"))
+    if not flac_files:
+        return {"lrclib": 0, "genius": 0, "not_found": 0}
+
+    # Get album info from first track
+    first_audio = FLAC(flac_files[0])
+    album_name = first_audio.get("album", [None])[0]
+
+    result = {"lrclib": 0, "genius": 0, "not_found": 0}
+    genius_key = GENIUS_API_KEY
+
+    for audio_file in flac_files:
+        audio = FLAC(audio_file)
+        artist = audio.get("artist", audio.get("albumartist", [None]))[0]
+        title = audio.get("title", [None])[0]
+
+        if not artist or not title:
+            result["not_found"] += 1
+            continue
+
+        lyrics, source = get_lyrics(artist, title, album_name, genius_key)
+
+        if lyrics:
+            audio["lyrics"] = [lyrics]
+            audio.save()
+            result[source] += 1
+        else:
+            result["not_found"] += 1
+
+    return result
+
+
 def download_album(url: str) -> tuple[bool, Path | None]:
     """Download an album using qobuz-dl.
 
@@ -764,6 +810,22 @@ def download_album(url: str) -> tuple[bool, Path | None]:
         print(f"done ({genre})")
     else:
         print("skipped (not found)")
+
+    # Fetch lyrics
+    print("Fetching lyrics...")
+    lyrics_result = fetch_lyrics_for_album(album_path)
+    lrclib_count = lyrics_result.get("lrclib", 0)
+    genius_count = lyrics_result.get("genius", 0)
+    not_found = lyrics_result.get("not_found", 0)
+    if lrclib_count or genius_count:
+        parts = []
+        if lrclib_count:
+            parts.append(f"{lrclib_count} from LRCLIB")
+        if genius_count:
+            parts.append(f"{genius_count} from Genius")
+        print(f"  Found: {', '.join(parts)}")
+    if not_found:
+        print(f"  Not found: {not_found} tracks")
 
     # Embed artwork (ensures proper embedding even if qobuz-dl's --embed-art fails)
     print("Embedding artwork...", end=" ", flush=True)

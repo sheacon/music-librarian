@@ -12,3 +12,6 @@ QOBUZ_CONFIG_PATH = Path.home() / ".config" / "qobuz-dl" / "config.ini"
 
 # Last.fm API key (get one free at https://www.last.fm/api/account/create)
 LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY", "")
+
+# Genius API key (get one at https://genius.com/api-clients)
+GENIUS_API_KEY = os.environ.get("GENIUS_API_KEY", "")
