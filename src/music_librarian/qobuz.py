@@ -621,10 +621,19 @@ def normalize_track_metadata(album_path: Path) -> int:
     Returns:
         Number of tracks modified.
     """
+    flac_files = sorted(album_path.glob("*.flac"))
+    track_total = str(len(flac_files))
     modified = 0
-    for audio_file in sorted(album_path.glob("*.flac")):
+
+    for audio_file in flac_files:
         audio = FLAC(audio_file)
         changed = False
+
+        # Update track total
+        current_total = audio.get("tracktotal", [None])[0]
+        if current_total != track_total:
+            audio["tracktotal"] = [track_total]
+            changed = True
 
         # Normalize artist to album artist
         artist = audio.get("artist", [None])[0]
