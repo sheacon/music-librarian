@@ -15,6 +15,9 @@ from .config import QOBUZ_CONFIG_PATH
 from .library import get_artist_search_variants
 
 
+# Minimum track count to be considered a full album (fallback when API doesn't provide release type)
+MIN_ALBUM_TRACKS = 6
+
 # Patterns to match edition markers in album/track titles.
 # Patterns with a capture group (group 1) are used by _extract_edition_markers()
 # to save the edition info to comments. All patterns are used for stripping.
@@ -363,19 +366,22 @@ def get_artist_albums(
                 if album_data.get("artist", {}).get("id") != int(artist_id):
                     continue
 
+                tracks_count = album_data.get("tracks_count", 0) or 0
+
                 # Skip singles/EPs if albums_only is True
-                # Qobuz uses product_type or release_type: "single", "ep", "epmini"
                 if albums_only:
+                    # Check API release type field
                     release_type = album_data.get("product_type") or album_data.get("release_type") or ""
                     if release_type.lower() in ("single", "ep", "epmini"):
+                        continue
+                    # Fallback: skip if too few tracks (API may not always provide release type)
+                    if tracks_count < MIN_ALBUM_TRACKS:
                         continue
 
                 # Skip compilations and live albums
                 title = album_data.get("title", "")
                 if _is_compilation_or_live(title):
                     continue
-
-                tracks_count = album_data.get("tracks_count", 0) or 0
 
                 # Parse year from release_date_original (format: YYYY-MM-DD)
                 release_date = album_data.get("release_date_original", "")
