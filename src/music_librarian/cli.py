@@ -20,7 +20,7 @@ from .ignore import (
     remove_ignored_artist,
 )
 from .lastfm import rank_albums_by_popularity
-from .library import scan_library
+from .library import parse_album_folder, scan_library
 from .normalize import normalize_album
 from .qobuz import _normalize_album_title, discover_missing_albums, download_album, process_album
 
@@ -32,6 +32,36 @@ ignore_app = typer.Typer(help="Manage ignored artists and albums.")
 app.add_typer(ignore_app, name="ignore")
 
 console = Console()
+
+
+def find_album_directories(path: Path) -> list[Path]:
+    """Find all album directories under a path.
+
+    An album directory is identified by the naming pattern '[YYYY] Album Title'.
+    If the given path itself is an album directory, returns just that path.
+    Otherwise, recursively searches for album directories.
+
+    Args:
+        path: Starting path to search from.
+
+    Returns:
+        List of album directory paths, sorted alphabetically.
+    """
+    # Check if path itself is an album directory
+    if parse_album_folder(path.name):
+        return [path]
+
+    # Recursively find album directories
+    albums = []
+    for item in sorted(path.iterdir()):
+        if item.is_dir():
+            if parse_album_folder(item.name):
+                albums.append(item)
+            else:
+                # Recurse into subdirectories (letter folders, artist folders)
+                albums.extend(find_album_directories(item))
+
+    return albums
 
 
 @app.command()
@@ -212,12 +242,19 @@ def download(
 
 @app.command()
 def process(
-    path: Annotated[Path, typer.Argument(help="Path to album folder")],
+    path: Annotated[Path, typer.Argument(help="Path to album or parent directory")],
 ) -> None:
-    """Apply post-processing to an existing album.
+    """Apply post-processing to album(s).
 
-    Runs: metadata normalization, genre lookup, lyrics fetching,
-    artwork embedding, and ReplayGain normalization.
+    Can process a single album folder or traverse a directory tree to find
+    and process all albums. Album folders are identified by the naming
+    pattern '[YYYY] Album Title'.
+
+    Examples:
+        music-librarian process "/path/to/[2020] Album Name"
+        music-librarian process "/path/to/Artist"
+        music-librarian process "/path/to/Alphabetical/B"
+        music-librarian process "/path/to/Alphabetical"
     """
     if not path.exists():
         console.print(f"[red]Path does not exist: {path}[/red]")
@@ -227,14 +264,32 @@ def process(
         console.print(f"[red]Path must be a directory: {path}[/red]")
         raise typer.Exit(1)
 
-    console.print(f"[cyan]Processing: {path.name}[/cyan]")
+    albums = find_album_directories(path)
 
-    try:
-        process_album(path)
-        console.print("[green]Processing complete![/green]")
-    except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
+    if not albums:
+        console.print(f"[yellow]No album folders found under: {path}[/yellow]")
         raise typer.Exit(1)
+
+    console.print(f"[cyan]Found {len(albums)} album(s) to process[/cyan]\n")
+
+    succeeded = 0
+    failed = 0
+
+    for album_path in albums:
+        console.print(f"[bold]{album_path.parent.name} / {album_path.name}[/bold]")
+        try:
+            process_album(album_path)
+            console.print("[green]  Done[/green]\n")
+            succeeded += 1
+        except Exception as e:
+            console.print(f"[red]  Error: {e}[/red]\n")
+            failed += 1
+
+    console.print(f"[cyan]Processed {succeeded} album(s)[/cyan]", end="")
+    if failed:
+        console.print(f"[red], {failed} failed[/red]")
+    else:
+        console.print()
 
 
 @app.command()
