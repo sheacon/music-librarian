@@ -730,17 +730,21 @@ def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
         title = audio.get("title", [None])[0]
 
         if not artist or not title:
+            print(f"  {audio_file.stem}: skipped (missing metadata)")
             result["not_found"] += 1
             continue
 
+        print(f"  {title}...", end=" ", flush=True)
         lyrics, source = get_lyrics(artist, title, album_name, genius_key)
 
         if lyrics:
             audio["lyrics"] = [lyrics]
             audio.save()
             result[source] += 1
+            print(f"found ({source})")
         else:
             result["not_found"] += 1
+            print("not found")
 
     return result
 
@@ -842,8 +846,16 @@ def download_album(url: str) -> tuple[bool, Path | None]:
         print("skipped (no cover found)")
 
     # Apply ReplayGain normalization
-    print("Applying ReplayGain...")
+    print("Applying ReplayGain...", end=" ", flush=True)
     from .normalize import normalize_album
-    normalize_album(album_path)
+    gain_info = normalize_album(album_path)
+    if gain_info:
+        print("done")
+        print("  Album:")
+        print(f"    Loudness: {gain_info['loudness']:8.2f} LUFS")
+        print(f"    Peak:     {gain_info['peak']:8.6f} ({gain_info['peak_db']:.2f} dB)")
+        print(f"    Gain:     {gain_info['gain']:8.2f} dB")
+    else:
+        print("failed")
 
     return True, album_path
