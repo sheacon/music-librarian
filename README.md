@@ -202,15 +202,20 @@ Default paths are defined in `src/music_librarian/config.py`:
 | `AAC_OUTPUT_PATH` | `~/Downloads/qobuz-dl/transcoded` | Where AAC conversions are saved |
 | `QOBUZ_CONFIG_PATH` | `~/.config/qobuz-dl/config.ini` | qobuz-dl credentials |
 
-### Last.fm API Key (Optional)
+### API Keys (Optional)
 
-For genre lookup during post-processing, get a free API key from [Last.fm](https://www.last.fm/api/account/create) and set it:
+Copy `.env.example` to `.env` and add your API keys:
 
 ```bash
-export LASTFM_API_KEY="your_api_key_here"
+cp .env.example .env
 ```
 
-Without an API key, genre metadata will not be added to downloaded albums.
+| Key | Purpose | Get one at |
+|-----|---------|------------|
+| `LASTFM_API_KEY` | Genre lookup during post-processing | [Last.fm](https://www.last.fm/api/account/create) |
+| `GENIUS_API_KEY` | Lyrics fallback when LRCLIB fails | [Genius](https://genius.com/api-clients) |
+
+Without these keys, the respective features will be skipped.
 
 ## How Deduplication Works
 

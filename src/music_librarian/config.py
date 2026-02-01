@@ -3,6 +3,11 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load .env file from project root if it exists
+load_dotenv()
+
 # Library paths
 LIBRARY_PATH = Path("/Volumes/music/Alphabetical")
 AAC_OUTPUT_PATH = Path.home() / "Downloads" / "qobuz-dl" / "transcoded"
