@@ -480,6 +480,10 @@ class TestParseInteractiveInput:
         result = _parse_interactive_input("1s", 5)
         assert result == [(1, "s")]
 
+    def test_single_index_open(self):
+        result = _parse_interactive_input("2o", 5)
+        assert result == [(2, "o")]
+
     def test_single_index_with_space(self):
         result = _parse_interactive_input("2 d", 5)
         assert result == [(2, "d")]
