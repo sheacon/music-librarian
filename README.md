@@ -286,7 +286,7 @@ Albums in Downloads (3):
   2. The Beatles - [1966] Revolver
   3. Pink Floyd - [1973] The Dark Side of the Moon
 
-Enter: number + action (e.g., '1s' stage, '2p' play, '3x' delete), or 'q' to quit
+Enter: number + action (e.g., '1s' stage, '2p' play, '3r' reprocess, '4x' delete), or 'q' to quit
 > 1s
 
 Staging: Radiohead - [1997] OK Computer
@@ -296,7 +296,8 @@ Staged successfully!
 Actions:
 - `1s` - Stage/shelve album 1
 - `2p` - Play album 2 in Cog
-- `3x` - Delete album 3
+- `3r` - Reprocess album 3 (re-run post-processing)
+- `4x` - Delete album 4
 - `q` - Quit interactive mode
 
 The shelve command automatically determines the correct library location based on the folder name format `{Artist} - [{YYYY}] {Album Title}`.
