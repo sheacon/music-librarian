@@ -491,6 +491,89 @@ def get_album_tracks(
         return tracks
 
 
+def get_album_artwork_url(
+    album_id: str,
+    app_id: str | None = None,
+    secret: str | None = None,
+) -> str | None:
+    """Get the cover artwork URL for an album.
+
+    Args:
+        album_id: Qobuz album ID.
+        app_id: Qobuz app ID. If None, reads from config.
+        secret: Qobuz secret. If None, reads from config.
+
+    Returns:
+        URL to the largest available cover image, or None if not found.
+    """
+    if app_id is None or secret is None:
+        app_id, secret = get_qobuz_credentials()
+
+    with httpx.Client() as client:
+        response = client.get(
+            "https://www.qobuz.com/api.json/0.2/album/get",
+            params={"album_id": album_id},
+            headers=_get_auth_headers(app_id, secret),
+        )
+
+        if response.status_code != 200:
+            return None
+
+        data = response.json()
+        image = data.get("image", {})
+
+        # Try to get the largest available image
+        for size in ["mega", "extralarge", "large", "medium", "small"]:
+            if size in image and image[size]:
+                return image[size]
+
+        return None
+
+
+def download_standard_artwork(album_path: Path, standard_id: str) -> bool:
+    """Download artwork from the standard edition and replace the cover image.
+
+    Args:
+        album_path: Path to the downloaded album folder.
+        standard_id: Qobuz ID of the standard edition.
+
+    Returns:
+        True if artwork was successfully downloaded and replaced.
+    """
+    artwork_url = get_album_artwork_url(standard_id)
+    if not artwork_url:
+        return False
+
+    # Download the artwork
+    try:
+        with httpx.Client() as client:
+            response = client.get(artwork_url)
+            if response.status_code != 200:
+                return False
+
+            # Determine file extension from content type or URL
+            content_type = response.headers.get("content-type", "")
+            if "png" in content_type or artwork_url.endswith(".png"):
+                ext = ".png"
+            else:
+                ext = ".jpg"
+
+            # Find and remove existing cover images
+            from .artwork import COVER_FILENAMES
+            for filename in COVER_FILENAMES:
+                existing = album_path / filename
+                if existing.exists():
+                    existing.unlink()
+
+            # Save new cover
+            cover_path = album_path / f"cover{ext}"
+            cover_path.write_bytes(response.content)
+            return True
+
+    except Exception:
+        return False
+
+
 def _normalize_track_title(title: str) -> str:
     """Normalize track title for matching."""
     # Remove common suffixes like "(Remastered)", version info, etc.
@@ -906,7 +989,7 @@ def process_album(album_path: Path) -> None:
         print("failed")
 
 
-def download_album(url: str) -> tuple[bool, Path | None]:
+def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path | None]:
     """Download an album using qobuz-dl.
 
     Downloads to DOWNLOADS_PATH with folder format: {artist} - [{year}] {album}
@@ -914,6 +997,8 @@ def download_album(url: str) -> tuple[bool, Path | None]:
 
     Args:
         url: Qobuz album URL.
+        standard_id: If provided, download artwork from this album ID instead
+            (used for merged albums to get standard edition artwork).
 
     Returns:
         Tuple of (success, album_path).
@@ -958,6 +1043,14 @@ def download_album(url: str) -> tuple[bool, Path | None]:
                 if not new_path.exists():
                     album_path.rename(new_path)
                     album_path = new_path
+
+    # Replace artwork with standard edition if this is a merged album
+    if standard_id:
+        print("Fetching standard edition artwork...", end=" ", flush=True)
+        if download_standard_artwork(album_path, standard_id):
+            print("done")
+        else:
+            print("failed (keeping original)")
 
     # Run post-processing
     process_album(album_path)

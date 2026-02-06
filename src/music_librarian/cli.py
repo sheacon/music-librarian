@@ -222,7 +222,7 @@ def _interactive_discover(
                 cons.print(f"\n[cyan]Downloading: [{album.year}] {album.title}[/cyan]")
                 try:
                     url = f"https://open.qobuz.com/album/{album.id}"
-                    success, album_path = download_album(url)
+                    success, album_path = download_album(url, standard_id=album.standard_id)
                     if success:
                         cons.print("[green]Download complete![/green]")
                         if album_path:
