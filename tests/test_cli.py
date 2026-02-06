@@ -217,6 +217,63 @@ class TestStage:
         assert result.exit_code == 1
         assert "Already exists" in result.output
 
+    @patch("music_librarian.cli.rsync_album")
+    def test_index_success(self, mock_rsync, tmp_path):
+        downloads, album = self._make_album(tmp_path)
+        volume, new = self._make_volume(tmp_path)
+
+        def fake_rsync(source, dest, dry_run=False):
+            dest_album = dest / source.name
+            dest_album.mkdir(parents=True, exist_ok=True)
+            (dest_album / "01 - Airbag.flac").touch()
+            return True
+
+        mock_rsync.side_effect = fake_rsync
+
+        with patch("music_librarian.cli.DOWNLOADS_PATH", downloads), \
+             patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new), \
+             patch("music_librarian.cli.delete_source") as mock_delete:
+            result = runner.invoke(app, ["stage", "-i", "1"])
+
+        assert result.exit_code == 0
+        assert "Staged successfully" in result.output
+        mock_delete.assert_called_once_with(album)
+
+    @patch("music_librarian.cli.rsync_album")
+    def test_index_dry_run(self, mock_rsync, tmp_path):
+        downloads, album = self._make_album(tmp_path)
+        volume, new = self._make_volume(tmp_path)
+        mock_rsync.return_value = True
+
+        with patch("music_librarian.cli.DOWNLOADS_PATH", downloads), \
+             patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new):
+            result = runner.invoke(app, ["stage", "-i", "1", "-n"])
+
+        assert result.exit_code == 0
+        assert "Dry run" in result.output
+        assert album.exists()
+
+    def test_index_invalid(self, tmp_path):
+        downloads, album = self._make_album(tmp_path)
+
+        with patch("music_librarian.cli.DOWNLOADS_PATH", downloads):
+            result = runner.invoke(app, ["stage", "-i", "5"])
+
+        assert result.exit_code == 1
+        assert "Invalid index" in result.output
+
+    def test_index_empty(self, tmp_path):
+        downloads = tmp_path / "downloads"
+        downloads.mkdir()
+
+        with patch("music_librarian.cli.DOWNLOADS_PATH", downloads):
+            result = runner.invoke(app, ["stage", "-i", "1"])
+
+        assert result.exit_code == 1
+        assert "No albums" in result.output
+
 
 # --- shelve command ---
 
@@ -343,3 +400,57 @@ class TestShelve:
 
         assert result.exit_code == 1
         assert "not mounted" in result.output
+
+    @patch("music_librarian.cli.move_album")
+    def test_index_success(self, mock_move, tmp_path):
+        volume, new, album, lib = self._make_new_dir(tmp_path)
+        (lib / "R" / "Radiohead").mkdir(parents=True)
+
+        with patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new), \
+             patch("music_librarian.cli.LIBRARY_PATH", lib):
+            result = runner.invoke(app, ["shelve", "-i", "1"])
+
+        assert result.exit_code == 0
+        assert "Shelved successfully" in result.output
+        expected_dest = lib / "R" / "Radiohead" / "[1997] OK Computer"
+        mock_move.assert_called_once_with(album, expected_dest)
+
+    def test_index_dry_run(self, tmp_path):
+        volume, new, album, lib = self._make_new_dir(tmp_path)
+
+        with patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new), \
+             patch("music_librarian.cli.LIBRARY_PATH", lib):
+            result = runner.invoke(app, ["shelve", "-i", "1", "-n"])
+
+        assert result.exit_code == 0
+        assert "Dry run" in result.output
+        assert album.exists()
+
+    def test_index_invalid(self, tmp_path):
+        volume, new, album, lib = self._make_new_dir(tmp_path)
+
+        with patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new), \
+             patch("music_librarian.cli.LIBRARY_PATH", lib):
+            result = runner.invoke(app, ["shelve", "-i", "5"])
+
+        assert result.exit_code == 1
+        assert "Invalid index" in result.output
+
+    def test_index_empty(self, tmp_path):
+        volume = tmp_path / "volume"
+        volume.mkdir()
+        new = volume / "[New]"
+        new.mkdir()
+        lib = volume / "Alphabetical"
+        lib.mkdir()
+
+        with patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new), \
+             patch("music_librarian.cli.LIBRARY_PATH", lib):
+            result = runner.invoke(app, ["shelve", "-i", "1"])
+
+        assert result.exit_code == 1
+        assert "No albums" in result.output
