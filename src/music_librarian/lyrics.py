@@ -124,10 +124,22 @@ def get_lyrics_from_genius(
             if lyrics_containers:
                 lyrics_parts = []
                 for container in lyrics_containers:
+                    # Remove header divs that contain metadata (contributors, etc.)
+                    for header in container.find_all(
+                        class_=lambda c: c and "LyricsHeader" in str(c)
+                    ):
+                        header.decompose()
+
                     # Get text, replacing <br> with newlines
                     for br in container.find_all("br"):
                         br.replace_with("\n")
-                    lyrics_parts.append(container.get_text())
+                    text = container.get_text()
+
+                    # Skip empty containers
+                    if len(text.strip()) < 10:
+                        continue
+
+                    lyrics_parts.append(text)
                 return "\n".join(lyrics_parts).strip()
 
             return None
