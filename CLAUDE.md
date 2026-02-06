@@ -23,8 +23,10 @@ music-librarian process <path>          # Post-process album(s) - supports bulk
 music-librarian process -n <path>       # Dry run - preview changes
 music-librarian stage                   # List/stage albums from Downloads to [New]
 music-librarian stage -i 1              # Stage album by index
+music-librarian stage -I                # Interactive mode - stage, play, or delete
 music-librarian shelve                  # List/shelve albums from [New] to library
 music-librarian shelve -i 1             # Shelve album by index
+music-librarian shelve -I               # Interactive mode - shelve, play, or delete
 music-librarian normalize <path>        # Apply ReplayGain tags
 music-librarian convert <path>          # Convert to AAC
 

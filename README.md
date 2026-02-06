@@ -236,6 +236,9 @@ Move albums from local Downloads to `[New]` on the NAS:
 # List albums in Downloads
 music-librarian stage
 
+# Interactive mode - stage, play, or delete albums
+music-librarian stage -I
+
 # Preview album in Cog player before staging
 music-librarian stage -p 1
 
@@ -257,6 +260,9 @@ Move albums from `[New]` to their permanent library location:
 # List albums in [New] (shows destination paths)
 music-librarian shelve
 
+# Interactive mode - shelve, play, or delete albums
+music-librarian shelve -I
+
 # Preview album in Cog before shelving
 music-librarian shelve -p 1
 
@@ -269,6 +275,29 @@ music-librarian shelve "Radiohead - [1997] OK Computer"
 # Dry run to preview the move
 music-librarian shelve -i 1 -n
 ```
+
+#### Interactive Mode
+
+Both `stage` and `shelve` support interactive mode (`-I`):
+
+```
+Albums in Downloads (3):
+  1. Radiohead - [1997] OK Computer
+  2. The Beatles - [1966] Revolver
+  3. Pink Floyd - [1973] The Dark Side of the Moon
+
+Enter: number + action (e.g., '1s' stage, '2p' play, '3x' delete), or 'q' to quit
+> 1s
+
+Staging: Radiohead - [1997] OK Computer
+Staged successfully!
+```
+
+Actions:
+- `1s` - Stage/shelve album 1
+- `2p` - Play album 2 in Cog
+- `3x` - Delete album 3
+- `q` - Quit interactive mode
 
 The shelve command automatically determines the correct library location based on the folder name format `{Artist} - [{YYYY}] {Album Title}`.
 
@@ -340,15 +369,17 @@ music-librarian process PATH [--dry-run]
     Accepts album folder, artist folder, letter folder, or library root.
     Use --dry-run (-n) to preview changes without applying them.
 
-music-librarian stage [NAME] [--index N] [--play N] [--dry-run]
+music-librarian stage [NAME] [--index N] [--play N] [--dry-run] [--interactive]
     Stage an album from Downloads to [New] on the NAS.
     Use -i/--index to select by list position.
     Use -p/--play to preview in Cog before staging.
+    Use -I/--interactive for interactive mode (stage, play, delete).
 
-music-librarian shelve [NAME] [--index N] [--play N] [--dry-run]
+music-librarian shelve [NAME] [--index N] [--play N] [--dry-run] [--interactive]
     Move an album from [New] to its permanent library location.
     Use -i/--index to select by list position.
     Use -p/--play to preview in Cog before shelving.
+    Use -I/--interactive for interactive mode (shelve, play, delete).
 
 music-librarian normalize PATH
     Apply ReplayGain normalization to an album.
