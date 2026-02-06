@@ -5,6 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 from rich.console import Console
+from rich.prompt import Prompt
 from rich.table import Table
 
 from .artwork import embed_artwork
@@ -20,10 +21,19 @@ from .ignore import (
     remove_ignored_artist,
 )
 from .lastfm import rank_albums_by_popularity
-from .library import check_volume_mounted, get_artist_path, parse_album_folder, parse_new_folder, scan_library
+from .library import (
+    check_volume_mounted,
+    find_matching_artist,
+    get_artist_path,
+    normalize_artist,
+    parse_album_folder,
+    parse_new_folder,
+    scan_library,
+)
 from .transfer import delete_source, move_album, rsync_album
 from .normalize import normalize_album
 from .qobuz import (
+    QobuzAlbum,
     _normalize_album_title,
     discover_missing_albums,
     download_album,
@@ -105,6 +115,126 @@ def scan(
     console.print(f"\n[bold]Total:[/bold] {len(artists)} artists")
 
 
+def _parse_interactive_input(choice: str, max_idx: int) -> list[tuple[int, str]]:
+    """Parse interactive discover input.
+
+    Supports:
+    - Single index: "2" (select), "2d" (download), "2i" (ignore), "2s" (skip)
+    - Range: "1-3d" (download 1, 2, 3), "1-3i" (ignore 1, 2, 3)
+    - Action only: "d", "i", "s", "q"
+
+    Returns list of (index, action) tuples. Index is 0 for action-only commands.
+    """
+    choice = choice.strip().lower()
+
+    if not choice:
+        return []
+
+    if choice == "q":
+        return [(0, "q")]
+
+    # Parse range with action: "1-3d" or "1-3 d"
+    import re
+    range_match = re.match(r"(\d+)\s*-\s*(\d+)\s*([dis])?", choice)
+    if range_match:
+        start, end, action = range_match.groups()
+        start_idx, end_idx = int(start), int(end)
+        if start_idx < 1 or end_idx > max_idx or start_idx > end_idx:
+            return []
+        action = action or "s"  # Default to select/skip
+        return [(i, action) for i in range(start_idx, end_idx + 1)]
+
+    # Parse single index with optional action: "2", "2d", "2 d"
+    single_match = re.match(r"(\d+)\s*([dis])?", choice)
+    if single_match:
+        idx, action = single_match.groups()
+        idx = int(idx)
+        if idx < 1 or idx > max_idx:
+            return []
+        action = action or "s"  # Default to select/skip
+        return [(idx, action)]
+
+    return []
+
+
+def _interactive_discover(
+    artist_name: str,
+    canonical_name: str,
+    albums: list[QobuzAlbum],
+    cons: Console,
+) -> None:
+    """Interactive album selection for discover command."""
+    # Sort by year for display
+    albums = sorted(albums, key=lambda x: x.year)
+
+    while albums:
+        # Display numbered list
+        cons.print(f"\n[bold]Albums for {canonical_name} ({len(albums)}):[/bold]")
+        for i, album in enumerate(albums, 1):
+            fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
+            if album.standard_id:
+                cons.print(
+                    f"  [bold]{i}.[/bold] [{album.year}] {album.title} "
+                    f"[magenta]({fidelity}, {album.standard_track_count} tracks)[/magenta]"
+                )
+            else:
+                cons.print(
+                    f"  [bold]{i}.[/bold] [{album.year}] {album.title} [dim]({fidelity})[/dim]"
+                )
+
+        cons.print(
+            "\n[dim]Enter: number + action (e.g., '2d' download, '3i' ignore, '1-3i' range), "
+            "or 'q' to quit[/dim]"
+        )
+
+        # Get input
+        try:
+            choice = Prompt.ask(">")
+        except (KeyboardInterrupt, EOFError):
+            break
+
+        parsed = _parse_interactive_input(choice, len(albums))
+        if not parsed:
+            cons.print("[yellow]Invalid input. Try again.[/yellow]")
+            continue
+
+        # Check for quit
+        if parsed[0][1] == "q":
+            break
+
+        # Process actions in reverse order (so indices remain valid after removal)
+        removed_indices = set()
+        for idx, action in sorted(parsed, key=lambda x: -x[0]):
+            album = albums[idx - 1]
+
+            if action == "d":
+                # Download
+                cons.print(f"\n[cyan]Downloading: [{album.year}] {album.title}[/cyan]")
+                try:
+                    url = f"https://open.qobuz.com/album/{album.id}"
+                    success, album_path = download_album(url)
+                    if success:
+                        cons.print("[green]Download complete![/green]")
+                        if album_path:
+                            cons.print(f"  Location: {album_path}")
+                        removed_indices.add(idx - 1)
+                    else:
+                        cons.print("[red]Download failed.[/red]")
+                except Exception as e:
+                    cons.print(f"[red]Error: {e}[/red]")
+
+            elif action == "i":
+                # Ignore
+                add_ignored_album(canonical_name, album.title)
+                cons.print(f"[dim]Ignored: [{album.year}] {album.title}[/dim]")
+                removed_indices.add(idx - 1)
+
+            # "s" (skip) does nothing
+
+        # Remove processed albums
+        albums = [a for i, a in enumerate(albums) if i not in removed_indices]
+
+
 @app.command()
 def discover(
     artist: Annotated[
@@ -118,6 +248,10 @@ def discover(
     all_albums: Annotated[
         bool,
         typer.Option("--all", help="Show all albums instead of top 3"),
+    ] = False,
+    interactive: Annotated[
+        bool,
+        typer.Option("--interactive", "-I", help="Interactive mode to download or ignore albums"),
     ] = False,
 ) -> None:
     """Find new albums by artists in the library."""
@@ -135,12 +269,23 @@ def discover(
 
     # Filter to specific artist if provided
     if artist:
-        from .library import normalize_artist
-
         normalized = normalize_artist(artist)
         if normalized not in artists:
-            console.print(f"[yellow]Artist '{artist}' not found in library.[/yellow]")
-            return
+            # Try fuzzy match
+            match = find_matching_artist(artist, list(artists.keys()))
+            if match:
+                console.print(f"[dim]Matched '{artist}' to '{match}'[/dim]")
+                normalized = match
+            else:
+                console.print(f"[yellow]Artist '{artist}' not found in library.[/yellow]")
+                # Suggest closest matches
+                from rapidfuzz import process as rfprocess
+                suggestions = rfprocess.extract(artist, list(artists.keys()), limit=3)
+                if suggestions:
+                    console.print("[dim]Did you mean:[/dim]")
+                    for name, score, _ in suggestions:
+                        console.print(f"  [dim]- {name}[/dim]")
+                return
         artists = {normalized: artists[normalized]}
 
     from .ignore import is_artist_ignored
@@ -169,43 +314,51 @@ def discover(
             ]
 
             if missing:
-                total_count = len(missing)
-                display_albums = missing
-                remaining_count = 0
-
-                # Rank and limit if more than 3 albums and not showing all
-                if total_count > 3 and not all_albums:
-                    # Sort by Qobuz popularity (descending), then by year (ascending)
-                    display_albums = sorted(
-                        missing, key=lambda x: (-x.popularity, x.year)
-                    )[:3]
-                    remaining_count = total_count - 3
-
-                console.print(f"  [green]Found {total_count} new album(s):[/green]")
-
-                # When showing all, sort by year; when showing top 3, keep popularity order
-                if all_albums:
-                    display_albums = sorted(display_albums, key=lambda x: x.year)
-
-                for album in display_albums:
-                    fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
-                    if album.standard_id:
-                        # This is a hi-fi version that will have bonus tracks removed
-                        console.print(
-                            f"    [{album.year}] {album.title} "
-                            f"[magenta]({fidelity}, {album.standard_track_count} tracks)[/magenta] "
-                            f"[dim]id:{album.id}[/dim]"
-                        )
-                    else:
-                        console.print(
-                            f"    [{album.year}] {album.title} [dim]({fidelity})[/dim] "
-                            f"[dim]id:{album.id}[/dim]"
-                        )
-
-                if remaining_count > 0:
-                    console.print(
-                        f"    [dim]...and {remaining_count} more (use --all to see all)[/dim]"
+                if interactive:
+                    _interactive_discover(
+                        artist_data.name,
+                        artist_data.canonical_name,
+                        missing,
+                        console,
                     )
+                else:
+                    total_count = len(missing)
+                    display_albums = missing
+                    remaining_count = 0
+
+                    # Rank and limit if more than 3 albums and not showing all
+                    if total_count > 3 and not all_albums:
+                        # Sort by Qobuz popularity (descending), then by year (ascending)
+                        display_albums = sorted(
+                            missing, key=lambda x: (-x.popularity, x.year)
+                        )[:3]
+                        remaining_count = total_count - 3
+
+                    console.print(f"  [green]Found {total_count} new album(s):[/green]")
+
+                    # When showing all, sort by year; when showing top 3, keep popularity order
+                    if all_albums:
+                        display_albums = sorted(display_albums, key=lambda x: x.year)
+
+                    for album in display_albums:
+                        fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
+                        if album.standard_id:
+                            # This is a hi-fi version that will have bonus tracks removed
+                            console.print(
+                                f"    [{album.year}] {album.title} "
+                                f"[magenta]({fidelity}, {album.standard_track_count} tracks)[/magenta] "
+                                f"[dim]id:{album.id}[/dim]"
+                            )
+                        else:
+                            console.print(
+                                f"    [{album.year}] {album.title} [dim]({fidelity})[/dim] "
+                                f"[dim]id:{album.id}[/dim]"
+                            )
+
+                    if remaining_count > 0:
+                        console.print(
+                            f"    [dim]...and {remaining_count} more (use --all to see all)[/dim]"
+                        )
             else:
                 console.print("  [dim]No new albums found.[/dim]")
         except Exception as e:

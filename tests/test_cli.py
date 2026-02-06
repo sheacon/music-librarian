@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from music_librarian.cli import app, find_album_directories
+from music_librarian.cli import app, find_album_directories, _parse_interactive_input
 
 runner = CliRunner()
 
@@ -454,3 +454,113 @@ class TestShelve:
 
         assert result.exit_code == 1
         assert "No albums" in result.output
+
+
+# --- _parse_interactive_input ---
+
+
+class TestParseInteractiveInput:
+    def test_quit(self):
+        result = _parse_interactive_input("q", 5)
+        assert result == [(0, "q")]
+
+    def test_quit_case_insensitive(self):
+        result = _parse_interactive_input("Q", 5)
+        assert result == [(0, "q")]
+
+    def test_single_index_download(self):
+        result = _parse_interactive_input("2d", 5)
+        assert result == [(2, "d")]
+
+    def test_single_index_ignore(self):
+        result = _parse_interactive_input("3i", 5)
+        assert result == [(3, "i")]
+
+    def test_single_index_skip(self):
+        result = _parse_interactive_input("1s", 5)
+        assert result == [(1, "s")]
+
+    def test_single_index_with_space(self):
+        result = _parse_interactive_input("2 d", 5)
+        assert result == [(2, "d")]
+
+    def test_single_index_no_action(self):
+        # Default to skip
+        result = _parse_interactive_input("2", 5)
+        assert result == [(2, "s")]
+
+    def test_range_download(self):
+        result = _parse_interactive_input("1-3d", 5)
+        assert result == [(1, "d"), (2, "d"), (3, "d")]
+
+    def test_range_ignore(self):
+        result = _parse_interactive_input("2-4i", 5)
+        assert result == [(2, "i"), (3, "i"), (4, "i")]
+
+    def test_range_with_spaces(self):
+        result = _parse_interactive_input("1 - 3 d", 5)
+        assert result == [(1, "d"), (2, "d"), (3, "d")]
+
+    def test_range_no_action(self):
+        # Default to skip
+        result = _parse_interactive_input("1-2", 5)
+        assert result == [(1, "s"), (2, "s")]
+
+    def test_invalid_empty(self):
+        result = _parse_interactive_input("", 5)
+        assert result == []
+
+    def test_invalid_index_too_high(self):
+        result = _parse_interactive_input("10d", 5)
+        assert result == []
+
+    def test_invalid_index_zero(self):
+        result = _parse_interactive_input("0d", 5)
+        assert result == []
+
+    def test_invalid_range_exceeds_max(self):
+        result = _parse_interactive_input("1-10d", 5)
+        assert result == []
+
+    def test_invalid_range_reversed(self):
+        result = _parse_interactive_input("5-2d", 5)
+        assert result == []
+
+    def test_whitespace_handling(self):
+        result = _parse_interactive_input("  2d  ", 5)
+        assert result == [(2, "d")]
+
+
+# --- discover command interactive mode ---
+
+
+class TestDiscoverInteractive:
+    def test_interactive_flag_recognized(self, tmp_library):
+        # Just test that the flag is recognized and doesn't error
+        with patch("music_librarian.cli.discover_missing_albums") as mock_discover:
+            mock_discover.return_value = []
+            result = runner.invoke(
+                app, ["discover", "-a", "Radiohead", "-I", "-p", str(tmp_library)],
+                input="q\n"
+            )
+
+        assert result.exit_code == 0
+
+    def test_discover_fuzzy_match(self, tmp_library):
+        with patch("music_librarian.cli.discover_missing_albums") as mock_discover:
+            mock_discover.return_value = []
+            result = runner.invoke(
+                app, ["discover", "-a", "Radiohed", "-p", str(tmp_library)]
+            )
+
+        assert result.exit_code == 0
+        assert "Matched 'Radiohed' to 'Radiohead'" in result.output
+
+    def test_discover_no_match_shows_suggestions(self, tmp_library):
+        result = runner.invoke(
+            app, ["discover", "-a", "asdfasdf", "-p", str(tmp_library)]
+        )
+
+        assert result.exit_code == 0
+        assert "not found" in result.output
+        assert "Did you mean:" in result.output

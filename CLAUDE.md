@@ -16,7 +16,8 @@ pip install -e .
 
 # Run the CLI
 music-librarian scan                    # List library contents
-music-librarian discover --artist "X"   # Find missing albums
+music-librarian discover --artist "X"   # Find missing albums (fuzzy matching)
+music-librarian discover --artist "X" -I # Interactive mode - download/ignore albums
 music-librarian download <album_id>     # Download from Qobuz
 music-librarian process <path>          # Post-process album(s) - supports bulk
 music-librarian process -n <path>       # Dry run - preview changes
@@ -39,7 +40,7 @@ music-librarian convert <path>          # Convert to AAC
 
 - **cli.py** - Typer-based CLI entry point, defines all commands
 - **qobuz.py** - Core Qobuz integration: API calls, album deduplication, download orchestration, post-processing pipeline
-- **library.py** - Local library scanning, parses folder structure `[Letter]/[Artist]/[Year] Album Title/`
+- **library.py** - Local library scanning, parses folder structure `[Letter]/[Artist]/[Year] Album Title/`, fuzzy artist matching
 - **config.py** - Default paths and environment variable handling (LASTFM_API_KEY, GENIUS_API_KEY)
 
 ### Supporting Modules
@@ -66,6 +67,25 @@ When multiple editions exist (standard, deluxe, remaster), the tool:
 - Finds standard edition (earliest year, fewest tracks)
 - Finds hi-fi edition (highest bit depth, then sample rate)
 - Merges: uses hi-fi audio with standard's year, removes bonus tracks after download
+
+### Fuzzy Artist Matching (`library.find_matching_artist`)
+
+The discover command uses fuzzy matching (via `rapidfuzz`) to find artists even with:
+- Typos: "Radiohed" → "Radiohead"
+- Accents: "Beyonce" → "Beyoncé"
+- Word reordering: "Black Keys The" → "The Black Keys"
+- Partial matches: "Beatles" → "The Beatles"
+- Case differences: "RADIOHEAD" → "Radiohead"
+
+If no match is found, suggests closest matches with "Did you mean:" prompt.
+
+### Interactive Discover Mode
+
+The `-I` / `--interactive` flag enables interactive album selection:
+- Displays all albums with numbered indices
+- Supports shorthand input: `2d` (download), `3i` (ignore), `1-3i` (range)
+- Downloads call `download_album()`, ignores call `add_ignored_album()`
+- Type `q` to quit
 
 ### Library Structure Expectations
 
