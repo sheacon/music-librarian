@@ -192,6 +192,58 @@ music-librarian convert "/Volumes/music/Alphabetical/B/Black Keys/[2011] El Cami
 
 Output is saved to `~/Downloads/qobuz-dl/transcoded/[Artist]/[Album]/` by default.
 
+### Album Graduation Workflow
+
+New albums go through a staging process before being added to the permanent library:
+
+1. **Downloads** → Albums are downloaded to `~/Downloads/qobuz-dl/`
+2. **[New]** → Albums are staged to a `[New]` folder on the NAS for review
+3. **Library** → Albums are shelved to their permanent alphabetical location
+
+#### Stage Albums
+
+Move albums from local Downloads to `[New]` on the NAS:
+
+```bash
+# List albums in Downloads
+music-librarian stage
+
+# Preview album in Cog player before staging
+music-librarian stage -p 1
+
+# Stage by index (shown in list)
+music-librarian stage -i 1
+
+# Stage by folder name
+music-librarian stage "Radiohead - [1997] OK Computer"
+
+# Dry run to preview the transfer
+music-librarian stage -i 1 -n
+```
+
+#### Shelve Albums
+
+Move albums from `[New]` to their permanent library location:
+
+```bash
+# List albums in [New] (shows destination paths)
+music-librarian shelve
+
+# Preview album in Cog before shelving
+music-librarian shelve -p 1
+
+# Shelve by index
+music-librarian shelve -i 1
+
+# Shelve by folder name
+music-librarian shelve "Radiohead - [1997] OK Computer"
+
+# Dry run to preview the move
+music-librarian shelve -i 1 -n
+```
+
+The shelve command automatically determines the correct library location based on the folder name format `{Artist} - [{YYYY}] {Album Title}`.
+
 ## Configuration
 
 Default paths are defined in `src/music_librarian/config.py`:
@@ -257,6 +309,16 @@ music-librarian process PATH [--dry-run]
     Apply post-processing to existing album(s).
     Accepts album folder, artist folder, letter folder, or library root.
     Use --dry-run (-n) to preview changes without applying them.
+
+music-librarian stage [NAME] [--index N] [--play N] [--dry-run]
+    Stage an album from Downloads to [New] on the NAS.
+    Use -i/--index to select by list position.
+    Use -p/--play to preview in Cog before staging.
+
+music-librarian shelve [NAME] [--index N] [--play N] [--dry-run]
+    Move an album from [New] to its permanent library location.
+    Use -i/--index to select by list position.
+    Use -p/--play to preview in Cog before shelving.
 
 music-librarian normalize PATH
     Apply ReplayGain normalization to an album.
