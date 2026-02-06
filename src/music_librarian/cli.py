@@ -465,6 +465,47 @@ def embed_art(
     console.print("[green]Artwork embedded successfully![/green]")
 
 
+def _open_in_cog(album_path: Path) -> None:
+    """Open an album folder in the Cog music player."""
+    import subprocess
+
+    subprocess.Popen(["open", "-a", "Cog", str(album_path)])
+    console.print(f"[green]Opened in Cog:[/green] {album_path.name}")
+
+
+def _list_albums_in(directory: Path, label: str, show_dest: bool = False) -> list[Path]:
+    """List albums in a directory with index numbers.
+
+    Args:
+        directory: Directory to scan for album folders.
+        label: Display label for the directory (e.g., "Downloads", "[New]").
+        show_dest: If True, show the destination path for each album.
+
+    Returns:
+        Sorted list of album directory paths.
+    """
+    albums = sorted(
+        [d for d in directory.iterdir() if d.is_dir() and parse_new_folder(d.name)],
+        key=lambda d: d.name.lower(),
+    )
+    if not albums:
+        console.print(f"[dim]No albums in {label}.[/dim]")
+        return albums
+
+    console.print(f"[bold]Albums in {label} ({len(albums)}):[/bold]")
+    for i, album_dir in enumerate(albums, 1):
+        parsed = parse_new_folder(album_dir.name)
+        if parsed and show_dest:
+            artist, year, title = parsed
+            dest = get_artist_path(artist, LIBRARY_PATH)
+            console.print(f"  [bold]{i}.[/bold] {album_dir.name}")
+            console.print(f"     [dim]→ {dest}/[{year}] {title}[/dim]")
+        else:
+            console.print(f"  [bold]{i}.[/bold] {album_dir.name}")
+
+    return albums
+
+
 @app.command()
 def stage(
     name: Annotated[
@@ -475,6 +516,10 @@ def stage(
         bool,
         typer.Option("--dry-run", "-n", help="Preview transfer without executing"),
     ] = False,
+    play: Annotated[
+        Optional[int],
+        typer.Option("--play", "-p", help="Open album at index in Cog"),
+    ] = None,
 ) -> None:
     """Stage an album from Downloads to [New] on the NAS.
 
@@ -485,6 +530,7 @@ def stage(
 
     Examples:
         music-librarian stage
+        music-librarian stage -p 1
         music-librarian stage "Radiohead - [1997] OK Computer"
         music-librarian stage -n "Radiohead - [1997] OK Computer"
     """
@@ -493,17 +539,13 @@ def stage(
             console.print(f"[dim]Downloads folder not found: {DOWNLOADS_PATH}[/dim]")
             return
 
-        albums = sorted(
-            [d for d in DOWNLOADS_PATH.iterdir() if d.is_dir() and parse_new_folder(d.name)],
-            key=lambda d: d.name.lower(),
-        )
-        if not albums:
-            console.print("[dim]No albums in Downloads.[/dim]")
-            return
-
-        console.print(f"[bold]Albums in Downloads ({len(albums)}):[/bold]")
-        for album_dir in albums:
-            console.print(f"  {album_dir.name}")
+        albums = _list_albums_in(DOWNLOADS_PATH, "Downloads")
+        if albums and play is not None:
+            if 1 <= play <= len(albums):
+                _open_in_cog(albums[play - 1])
+            else:
+                console.print(f"[red]Invalid index: {play} (1-{len(albums)})[/red]")
+                raise typer.Exit(1)
         return
 
     path = DOWNLOADS_PATH / name
@@ -579,6 +621,10 @@ def shelve(
         bool,
         typer.Option("--dry-run", "-n", help="Preview move without executing"),
     ] = False,
+    play: Annotated[
+        Optional[int],
+        typer.Option("--play", "-p", help="Open album at index in Cog"),
+    ] = None,
 ) -> None:
     """Shelve an album from [New] into the permanent library.
 
@@ -589,6 +635,7 @@ def shelve(
 
     Examples:
         music-librarian shelve
+        music-librarian shelve -p 2
         music-librarian shelve "Radiohead - [1997] OK Computer"
         music-librarian shelve -n "The Beatles - [1966] Revolver"
     """
@@ -602,24 +649,13 @@ def shelve(
         raise typer.Exit(1)
 
     if name is None:
-        albums = sorted(
-            [d for d in NEW_PATH.iterdir() if d.is_dir()],
-            key=lambda d: d.name.lower(),
-        )
-        if not albums:
-            console.print("[dim]No albums in [New].[/dim]")
-            return
-
-        console.print(f"[bold]Albums in [New] ({len(albums)}):[/bold]")
-        for album_dir in albums:
-            parsed = parse_new_folder(album_dir.name)
-            if parsed:
-                artist, year, title = parsed
-                dest = get_artist_path(artist, LIBRARY_PATH)
-                console.print(f"  {album_dir.name}")
-                console.print(f"    [dim]→ {dest}/[{year}] {title}[/dim]")
+        albums = _list_albums_in(NEW_PATH, "[New]", show_dest=True)
+        if albums and play is not None:
+            if 1 <= play <= len(albums):
+                _open_in_cog(albums[play - 1])
             else:
-                console.print(f"  [yellow]{album_dir.name}[/yellow] [dim](unrecognized format)[/dim]")
+                console.print(f"[red]Invalid index: {play} (1-{len(albums)})[/red]")
+                raise typer.Exit(1)
         return
 
     path = NEW_PATH / name
