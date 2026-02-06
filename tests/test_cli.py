@@ -595,6 +595,10 @@ class TestParseTransferInput:
         result = _parse_transfer_input("1x", 5)
         assert result == (1, "x")
 
+    def test_reprocess(self):
+        result = _parse_transfer_input("2r", 5)
+        assert result == (2, "r")
+
     def test_with_space(self):
         result = _parse_transfer_input("2 s", 5)
         assert result == (2, "s")

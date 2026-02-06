@@ -678,7 +678,7 @@ def _parse_transfer_input(choice: str, max_idx: int) -> tuple[int, str] | None:
     """Parse interactive stage/shelve input.
 
     Supports:
-    - Single index with action: "1s" (stage/shelve), "2p" (play), "3x" (delete)
+    - Single index with action: "1s" (stage/shelve), "2p" (play), "3r" (reprocess), "4x" (delete)
     - Just index: "1" (defaults to stage/shelve)
     - Quit: "q"
 
@@ -694,8 +694,8 @@ def _parse_transfer_input(choice: str, max_idx: int) -> tuple[int, str] | None:
     if choice == "q":
         return (0, "q")
 
-    # Parse index with optional action: "2", "2s", "2p", "2x"
-    match = re.match(r"(\d+)\s*([spx])?", choice)
+    # Parse index with optional action: "2", "2s", "2p", "2r", "2x"
+    match = re.match(r"(\d+)\s*([sprx])?", choice)
     if match:
         idx, action = match.groups()
         idx = int(idx)
@@ -730,7 +730,7 @@ def _interactive_stage(cons: Console) -> None:
             cons.print(f"  [bold]{i}.[/bold] {album_dir.name}")
 
         cons.print(
-            "\n[dim]Enter: number + action (e.g., '1s' stage, '2p' play, '3x' delete), "
+            "\n[dim]Enter: number + action (e.g., '1s' stage, '2p' play, '3r' reprocess, '4x' delete), "
             "or 'q' to quit[/dim]"
         )
 
@@ -754,6 +754,16 @@ def _interactive_stage(cons: Console) -> None:
 
         if action == "p":
             _open_in_cog(album_path)
+
+        elif action == "r":
+            # Reprocess album
+            artist, year, title = album_info
+            cons.print(f"[cyan]Reprocessing: {artist} - [{year}] {title}[/cyan]")
+            try:
+                process_album(album_path)
+                cons.print("[green]Reprocessing complete![/green]")
+            except Exception as e:
+                cons.print(f"[red]Error: {e}[/red]")
 
         elif action == "x":
             # Delete album
@@ -816,7 +826,7 @@ def _interactive_shelve(cons: Console) -> None:
                 cons.print(f"     [dim]→ {dest}/[{year}] {title}[/dim]")
 
         cons.print(
-            "\n[dim]Enter: number + action (e.g., '1s' shelve, '2p' play, '3x' delete), "
+            "\n[dim]Enter: number + action (e.g., '1s' shelve, '2p' play, '3r' reprocess, '4x' delete), "
             "or 'q' to quit[/dim]"
         )
 
@@ -840,6 +850,16 @@ def _interactive_shelve(cons: Console) -> None:
 
         if action == "p":
             _open_in_cog(album_path)
+
+        elif action == "r":
+            # Reprocess album
+            artist, year, title = album_info
+            cons.print(f"[cyan]Reprocessing: {artist} - [{year}] {title}[/cyan]")
+            try:
+                process_album(album_path)
+                cons.print("[green]Reprocessing complete![/green]")
+            except Exception as e:
+                cons.print(f"[red]Error: {e}[/red]")
 
         elif action == "x":
             # Delete album
