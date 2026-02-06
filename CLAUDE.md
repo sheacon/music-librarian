@@ -20,6 +20,10 @@ music-librarian discover --artist "X"   # Find missing albums
 music-librarian download <album_id>     # Download from Qobuz
 music-librarian process <path>          # Post-process album(s) - supports bulk
 music-librarian process -n <path>       # Dry run - preview changes
+music-librarian stage                   # List/stage albums from Downloads to [New]
+music-librarian stage -i 1              # Stage album by index
+music-librarian shelve                  # List/shelve albums from [New] to library
+music-librarian shelve -i 1             # Shelve album by index
 music-librarian normalize <path>        # Apply ReplayGain tags
 music-librarian convert <path>          # Convert to AAC
 
@@ -46,12 +50,14 @@ music-librarian convert <path>          # Convert to AAC
 - **lyrics.py** - Fetches from LRCLIB (primary) and Genius (fallback)
 - **lastfm.py** - Genre lookup via Last.fm API for post-processing
 - **ignore.py** - Manages ignore lists for artists/albums (persisted to ~/.config/music-librarian/ignore.json)
+- **transfer.py** - Handles rsync transfers and file moves for staging/shelving workflow
 
 ### Key Data Flow
 
 1. **Discovery**: `library.scan_library()` → `qobuz.search_artist()` → `qobuz.get_artist_albums()` → `qobuz._deduplicate_albums()`
 2. **Download**: `qobuz.download_album()` calls qobuz-dl subprocess, then `qobuz.process_album()` for post-processing
 3. **Post-processing** (`process_album`): metadata normalization → genre lookup → lyrics fetch → artwork embed → ReplayGain
+4. **Graduation**: `stage` (Downloads → [New] via rsync) → `shelve` ([New] → library via move)
 
 ### Album Deduplication Logic (`qobuz._deduplicate_albums`)
 
