@@ -520,6 +520,10 @@ def stage(
         Optional[int],
         typer.Option("--play", "-p", help="Open album at index in Cog"),
     ] = None,
+    index: Annotated[
+        Optional[int],
+        typer.Option("--index", "-i", help="Stage album at index (1-based)"),
+    ] = None,
 ) -> None:
     """Stage an album from Downloads to [New] on the NAS.
 
@@ -531,10 +535,11 @@ def stage(
     Examples:
         music-librarian stage
         music-librarian stage -p 1
+        music-librarian stage -i 1
+        music-librarian stage -i 1 -n
         music-librarian stage "Radiohead - [1997] OK Computer"
-        music-librarian stage -n "Radiohead - [1997] OK Computer"
     """
-    if name is None:
+    if name is None and index is None:
         if not DOWNLOADS_PATH.exists():
             console.print(f"[dim]Downloads folder not found: {DOWNLOADS_PATH}[/dim]")
             return
@@ -548,7 +553,24 @@ def stage(
                 raise typer.Exit(1)
         return
 
-    path = DOWNLOADS_PATH / name
+    if index is not None:
+        if not DOWNLOADS_PATH.exists():
+            console.print(f"[dim]Downloads folder not found: {DOWNLOADS_PATH}[/dim]")
+            raise typer.Exit(1)
+
+        albums = sorted(
+            [d for d in DOWNLOADS_PATH.iterdir() if d.is_dir() and parse_new_folder(d.name)],
+            key=lambda d: d.name.lower(),
+        )
+        if not albums:
+            console.print("[dim]No albums in Downloads.[/dim]")
+            raise typer.Exit(1)
+        if not 1 <= index <= len(albums):
+            console.print(f"[red]Invalid index: {index} (1-{len(albums)})[/red]")
+            raise typer.Exit(1)
+        path = albums[index - 1]
+    else:
+        path = DOWNLOADS_PATH / name
 
     if not path.exists():
         console.print(f"[red]Folder not found: {path}[/red]")
@@ -625,6 +647,10 @@ def shelve(
         Optional[int],
         typer.Option("--play", "-p", help="Open album at index in Cog"),
     ] = None,
+    index: Annotated[
+        Optional[int],
+        typer.Option("--index", "-i", help="Shelve album at index (1-based)"),
+    ] = None,
 ) -> None:
     """Shelve an album from [New] into the permanent library.
 
@@ -636,8 +662,9 @@ def shelve(
     Examples:
         music-librarian shelve
         music-librarian shelve -p 2
+        music-librarian shelve -i 1
+        music-librarian shelve -i 1 -n
         music-librarian shelve "Radiohead - [1997] OK Computer"
-        music-librarian shelve -n "The Beatles - [1966] Revolver"
     """
     if not check_volume_mounted(MUSIC_VOLUME):
         console.print(f"[red]Network drive not mounted: {MUSIC_VOLUME}[/red]")
@@ -648,7 +675,7 @@ def shelve(
         console.print(f"[red][New] folder not found: {NEW_PATH}[/red]")
         raise typer.Exit(1)
 
-    if name is None:
+    if name is None and index is None:
         albums = _list_albums_in(NEW_PATH, "[New]", show_dest=True)
         if albums and play is not None:
             if 1 <= play <= len(albums):
@@ -658,7 +685,20 @@ def shelve(
                 raise typer.Exit(1)
         return
 
-    path = NEW_PATH / name
+    if index is not None:
+        albums = sorted(
+            [d for d in NEW_PATH.iterdir() if d.is_dir() and parse_new_folder(d.name)],
+            key=lambda d: d.name.lower(),
+        )
+        if not albums:
+            console.print("[dim]No albums in [New].[/dim]")
+            raise typer.Exit(1)
+        if not 1 <= index <= len(albums):
+            console.print(f"[red]Invalid index: {index} (1-{len(albums)})[/red]")
+            raise typer.Exit(1)
+        path = albums[index - 1]
+    else:
+        path = NEW_PATH / name
 
     if not path.exists():
         console.print(f"[red]Folder not found: {path}[/red]")
