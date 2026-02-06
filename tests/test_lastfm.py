@@ -1,5 +1,7 @@
 """Tests for lastfm.py API integration."""
 
+from unittest.mock import patch
+
 import httpx
 import pytest
 import respx
@@ -14,7 +16,8 @@ from music_librarian.lastfm import (
 
 class TestCallLastfmApi:
     def test_returns_none_without_api_key(self):
-        result = _call_lastfm_api("album.getinfo", api_key=None)
+        with patch("music_librarian.lastfm.LASTFM_API_KEY", None):
+            result = _call_lastfm_api("album.getinfo", api_key=None)
         assert result is None
 
     def test_returns_none_with_empty_api_key(self):
@@ -59,7 +62,8 @@ class TestGetAlbumListeners:
         assert result == 0
 
     def test_returns_zero_without_api_key(self):
-        result = get_album_listeners("Artist", "Album", api_key=None)
+        with patch("music_librarian.lastfm.LASTFM_API_KEY", None):
+            result = get_album_listeners("Artist", "Album", api_key=None)
         assert result == 0
 
 
@@ -87,7 +91,8 @@ class TestGetArtistTopTag:
         assert result is None
 
     def test_returns_none_without_api_key(self):
-        result = get_artist_top_tag("Artist", api_key=None)
+        with patch("music_librarian.lastfm.LASTFM_API_KEY", None):
+            result = get_artist_top_tag("Artist", api_key=None)
         assert result is None
 
 
