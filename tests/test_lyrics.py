@@ -94,7 +94,8 @@ class TestGetLyricsFromLrclib:
 
 class TestGetLyricsFromGenius:
     def test_returns_none_without_api_key(self):
-        result = get_lyrics_from_genius("Artist", "Song", api_key=None)
+        with patch("music_librarian.lyrics.GENIUS_API_KEY", None):
+            result = get_lyrics_from_genius("Artist", "Song", api_key=None)
         assert result is None
 
     def test_returns_none_with_empty_api_key(self):
