@@ -85,6 +85,8 @@ class TestStage:
 
         assert result.exit_code == 0
         assert "Albums in Downloads (2)" in result.output
+        assert "1." in result.output
+        assert "2." in result.output
         assert "Radiohead - [1997] OK Computer" in result.output
         assert "The Beatles - [1966] Revolver" in result.output
 
@@ -108,6 +110,25 @@ class TestStage:
         assert result.exit_code == 0
         assert "Albums in Downloads (1)" in result.output
         assert "random_folder" not in result.output
+
+    @patch("music_librarian.cli._open_in_cog")
+    def test_play(self, mock_cog, tmp_path):
+        downloads, album = self._make_album(tmp_path)
+
+        with patch("music_librarian.cli.DOWNLOADS_PATH", downloads):
+            result = runner.invoke(app, ["stage", "-p", "1"])
+
+        assert result.exit_code == 0
+        mock_cog.assert_called_once_with(album)
+
+    def test_play_invalid_index(self, tmp_path):
+        downloads, album = self._make_album(tmp_path)
+
+        with patch("music_librarian.cli.DOWNLOADS_PATH", downloads):
+            result = runner.invoke(app, ["stage", "-p", "5"])
+
+        assert result.exit_code == 1
+        assert "Invalid index" in result.output
 
     @patch("music_librarian.cli.rsync_album")
     def test_dry_run(self, mock_rsync, tmp_path):
@@ -223,8 +244,32 @@ class TestShelve:
             result = runner.invoke(app, ["shelve"])
 
         assert result.exit_code == 0
+        assert "1." in result.output
         assert "Radiohead - [1997] OK Computer" in result.output
         assert "Albums in [New]" in result.output
+
+    @patch("music_librarian.cli._open_in_cog")
+    def test_play(self, mock_cog, tmp_path):
+        volume, new, album, lib = self._make_new_dir(tmp_path)
+
+        with patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new), \
+             patch("music_librarian.cli.LIBRARY_PATH", lib):
+            result = runner.invoke(app, ["shelve", "-p", "1"])
+
+        assert result.exit_code == 0
+        mock_cog.assert_called_once_with(album)
+
+    def test_play_invalid_index(self, tmp_path):
+        volume, new, album, lib = self._make_new_dir(tmp_path)
+
+        with patch("music_librarian.cli.MUSIC_VOLUME", volume), \
+             patch("music_librarian.cli.NEW_PATH", new), \
+             patch("music_librarian.cli.LIBRARY_PATH", lib):
+            result = runner.invoke(app, ["shelve", "-p", "5"])
+
+        assert result.exit_code == 1
+        assert "Invalid index" in result.output
 
     def test_dry_run(self, tmp_path):
         volume, new, album, lib = self._make_new_dir(tmp_path)

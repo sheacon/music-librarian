@@ -75,3 +75,13 @@ API keys can be set in a `.env` file (copy from `.env.example`):
 
 - `LASTFM_API_KEY` - Enables genre lookup during post-processing (optional)
 - `GENIUS_API_KEY` - Enables Genius lyrics fallback (optional)
+
+## Testing
+
+All new features must include tests. After making changes, run the full test suite to verify both new and existing functionality:
+
+```bash
+pytest
+```
+
+Tests live in `tests/` and use pytest with class-based grouping, `tmp_path` fixtures, and `unittest.mock.patch` for isolating dependencies. Follow the patterns in existing test files when adding new tests.
