@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from music_librarian.cli import app, find_album_directories, _parse_interactive_input
+from music_librarian.cli import app, find_album_directories, _parse_interactive_input, _parse_transfer_input
 
 runner = CliRunner()
 
@@ -568,3 +568,49 @@ class TestDiscoverInteractive:
         assert result.exit_code == 0
         assert "not found" in result.output
         assert "Did you mean:" in result.output
+
+
+# --- _parse_transfer_input ---
+
+
+class TestParseTransferInput:
+    def test_quit(self):
+        result = _parse_transfer_input("q", 5)
+        assert result == (0, "q")
+
+    def test_stage_explicit(self):
+        result = _parse_transfer_input("2s", 5)
+        assert result == (2, "s")
+
+    def test_stage_default(self):
+        # Just a number defaults to stage/shelve
+        result = _parse_transfer_input("2", 5)
+        assert result == (2, "s")
+
+    def test_play(self):
+        result = _parse_transfer_input("3p", 5)
+        assert result == (3, "p")
+
+    def test_delete(self):
+        result = _parse_transfer_input("1x", 5)
+        assert result == (1, "x")
+
+    def test_with_space(self):
+        result = _parse_transfer_input("2 s", 5)
+        assert result == (2, "s")
+
+    def test_invalid_empty(self):
+        result = _parse_transfer_input("", 5)
+        assert result is None
+
+    def test_invalid_index_too_high(self):
+        result = _parse_transfer_input("10s", 5)
+        assert result is None
+
+    def test_invalid_index_zero(self):
+        result = _parse_transfer_input("0s", 5)
+        assert result is None
+
+    def test_whitespace(self):
+        result = _parse_transfer_input("  2s  ", 5)
+        assert result == (2, "s")

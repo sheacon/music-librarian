@@ -674,6 +674,202 @@ def _list_albums_in(directory: Path, label: str, show_dest: bool = False) -> lis
     return albums
 
 
+def _parse_transfer_input(choice: str, max_idx: int) -> tuple[int, str] | None:
+    """Parse interactive stage/shelve input.
+
+    Supports:
+    - Single index with action: "1s" (stage/shelve), "2p" (play), "3x" (delete)
+    - Just index: "1" (defaults to stage/shelve)
+    - Quit: "q"
+
+    Returns (index, action) tuple, or None if invalid. Index is 0 for quit.
+    """
+    import re
+
+    choice = choice.strip().lower()
+
+    if not choice:
+        return None
+
+    if choice == "q":
+        return (0, "q")
+
+    # Parse index with optional action: "2", "2s", "2p", "2x"
+    match = re.match(r"(\d+)\s*([spx])?", choice)
+    if match:
+        idx, action = match.groups()
+        idx = int(idx)
+        if idx < 1 or idx > max_idx:
+            return None
+        action = action or "s"  # Default to stage/shelve
+        return (idx, action)
+
+    return None
+
+
+def _interactive_stage(cons: Console) -> None:
+    """Interactive album staging from Downloads to [New]."""
+    while True:
+        # Refresh album list
+        if not DOWNLOADS_PATH.exists():
+            cons.print(f"[dim]Downloads folder not found: {DOWNLOADS_PATH}[/dim]")
+            break
+
+        albums = sorted(
+            [d for d in DOWNLOADS_PATH.iterdir() if d.is_dir() and parse_new_folder(d.name)],
+            key=lambda d: d.name.lower(),
+        )
+
+        if not albums:
+            cons.print("[dim]No albums in Downloads.[/dim]")
+            break
+
+        # Display list
+        cons.print(f"\n[bold]Albums in Downloads ({len(albums)}):[/bold]")
+        for i, album_dir in enumerate(albums, 1):
+            cons.print(f"  [bold]{i}.[/bold] {album_dir.name}")
+
+        cons.print(
+            "\n[dim]Enter: number + action (e.g., '1s' stage, '2p' play, '3x' delete), "
+            "or 'q' to quit[/dim]"
+        )
+
+        try:
+            choice = Prompt.ask(">")
+        except (KeyboardInterrupt, EOFError):
+            break
+
+        parsed = _parse_transfer_input(choice, len(albums))
+        if not parsed:
+            cons.print("[yellow]Invalid input. Try again.[/yellow]")
+            continue
+
+        idx, action = parsed
+
+        if action == "q":
+            break
+
+        album_path = albums[idx - 1]
+        album_info = parse_new_folder(album_path.name)
+
+        if action == "p":
+            _open_in_cog(album_path)
+
+        elif action == "x":
+            # Delete album
+            import shutil
+            artist, year, title = album_info
+            cons.print(f"[yellow]Deleting: {artist} - [{year}] {title}[/yellow]")
+            shutil.rmtree(album_path)
+            cons.print("[dim]Deleted.[/dim]")
+
+        elif action == "s":
+            # Stage album
+            if not check_volume_mounted(MUSIC_VOLUME):
+                cons.print(f"[red]Network drive not mounted: {MUSIC_VOLUME}[/red]")
+                continue
+
+            if not NEW_PATH.exists():
+                NEW_PATH.mkdir(parents=True, exist_ok=True)
+
+            dest_album = NEW_PATH / album_path.name
+            if dest_album.exists():
+                cons.print(f"[red]Already exists in [New]: {dest_album.name}[/red]")
+                continue
+
+            artist, year, title = album_info
+            cons.print(f"[cyan]Staging: {artist} - [{year}] {title}[/cyan]")
+
+            success = rsync_album(album_path, NEW_PATH)
+            if success and dest_album.exists() and any(dest_album.iterdir()):
+                delete_source(album_path)
+                cons.print("[green]Staged successfully![/green]")
+            else:
+                cons.print("[red]Transfer failed.[/red]")
+
+
+def _interactive_shelve(cons: Console) -> None:
+    """Interactive album shelving from [New] to library."""
+    while True:
+        # Refresh album list
+        if not NEW_PATH.exists():
+            cons.print(f"[red][New] folder not found: {NEW_PATH}[/red]")
+            break
+
+        albums = sorted(
+            [d for d in NEW_PATH.iterdir() if d.is_dir() and parse_new_folder(d.name)],
+            key=lambda d: d.name.lower(),
+        )
+
+        if not albums:
+            cons.print("[dim]No albums in [New].[/dim]")
+            break
+
+        # Display list with destinations
+        cons.print(f"\n[bold]Albums in [New] ({len(albums)}):[/bold]")
+        for i, album_dir in enumerate(albums, 1):
+            parsed = parse_new_folder(album_dir.name)
+            if parsed:
+                artist, year, title = parsed
+                dest = get_artist_path(artist, LIBRARY_PATH)
+                cons.print(f"  [bold]{i}.[/bold] {album_dir.name}")
+                cons.print(f"     [dim]→ {dest}/[{year}] {title}[/dim]")
+
+        cons.print(
+            "\n[dim]Enter: number + action (e.g., '1s' shelve, '2p' play, '3x' delete), "
+            "or 'q' to quit[/dim]"
+        )
+
+        try:
+            choice = Prompt.ask(">")
+        except (KeyboardInterrupt, EOFError):
+            break
+
+        parsed = _parse_transfer_input(choice, len(albums))
+        if not parsed:
+            cons.print("[yellow]Invalid input. Try again.[/yellow]")
+            continue
+
+        idx, action = parsed
+
+        if action == "q":
+            break
+
+        album_path = albums[idx - 1]
+        album_info = parse_new_folder(album_path.name)
+
+        if action == "p":
+            _open_in_cog(album_path)
+
+        elif action == "x":
+            # Delete album
+            import shutil
+            artist, year, title = album_info
+            cons.print(f"[yellow]Deleting: {artist} - [{year}] {title}[/yellow]")
+            shutil.rmtree(album_path)
+            cons.print("[dim]Deleted.[/dim]")
+
+        elif action == "s":
+            # Shelve album
+            artist, year, title = album_info
+            artist_path = get_artist_path(artist, LIBRARY_PATH)
+            album_folder_name = f"[{year}] {title}"
+            dest_album = artist_path / album_folder_name
+
+            if dest_album.exists():
+                cons.print(f"[red]Destination already exists: {dest_album}[/red]")
+                continue
+
+            cons.print(f"[cyan]Shelving: {artist} - [{year}] {title}[/cyan]")
+
+            if not artist_path.exists():
+                artist_path.mkdir(parents=True, exist_ok=True)
+                cons.print(f"  Created: {artist_path}")
+
+            move_album(album_path, dest_album)
+            cons.print("[green]Shelved successfully![/green]")
+
+
 @app.command()
 def stage(
     name: Annotated[
@@ -692,6 +888,10 @@ def stage(
         Optional[int],
         typer.Option("--index", "-i", help="Stage album at index (1-based)"),
     ] = None,
+    interactive: Annotated[
+        bool,
+        typer.Option("--interactive", "-I", help="Interactive mode to stage, play, or delete albums"),
+    ] = False,
 ) -> None:
     """Stage an album from Downloads to [New] on the NAS.
 
@@ -705,8 +905,13 @@ def stage(
         music-librarian stage -p 1
         music-librarian stage -i 1
         music-librarian stage -i 1 -n
+        music-librarian stage -I
         music-librarian stage "Radiohead - [1997] OK Computer"
     """
+    if interactive:
+        _interactive_stage(console)
+        return
+
     if name is None and index is None:
         if not DOWNLOADS_PATH.exists():
             console.print(f"[dim]Downloads folder not found: {DOWNLOADS_PATH}[/dim]")
@@ -819,6 +1024,10 @@ def shelve(
         Optional[int],
         typer.Option("--index", "-i", help="Shelve album at index (1-based)"),
     ] = None,
+    interactive: Annotated[
+        bool,
+        typer.Option("--interactive", "-I", help="Interactive mode to shelve, play, or delete albums"),
+    ] = False,
 ) -> None:
     """Shelve an album from [New] into the permanent library.
 
@@ -832,8 +1041,17 @@ def shelve(
         music-librarian shelve -p 2
         music-librarian shelve -i 1
         music-librarian shelve -i 1 -n
+        music-librarian shelve -I
         music-librarian shelve "Radiohead - [1997] OK Computer"
     """
+    if interactive:
+        if not check_volume_mounted(MUSIC_VOLUME):
+            console.print(f"[red]Network drive not mounted: {MUSIC_VOLUME}[/red]")
+            console.print("  Mount the drive and try again.")
+            raise typer.Exit(1)
+        _interactive_shelve(console)
+        return
+
     if not check_volume_mounted(MUSIC_VOLUME):
         console.print(f"[red]Network drive not mounted: {MUSIC_VOLUME}[/red]")
         console.print("  Mount the drive and try again.")
