@@ -181,13 +181,15 @@ def _interactive_discover(
         for i, album in enumerate(albums, 1):
             fidelity = f"{album.bit_depth}bit/{album.sample_rate}kHz"
             if album.standard_id:
+                # Merged album - will be trimmed to standard track count
                 cons.print(
                     f"  [bold]{i}.[/bold] [{album.year}] {album.title} "
-                    f"[magenta]({fidelity}, {album.standard_track_count} tracks)[/magenta]"
+                    f"[dim]({fidelity}, [/dim][magenta]{album.standard_track_count} tracks, trimmed[/magenta][dim])[/dim]"
                 )
             else:
                 cons.print(
-                    f"  [bold]{i}.[/bold] [{album.year}] {album.title} [dim]({fidelity})[/dim]"
+                    f"  [bold]{i}.[/bold] [{album.year}] {album.title} "
+                    f"[dim]({fidelity}, {album.tracks_count} tracks)[/dim]"
                 )
 
         cons.print(
