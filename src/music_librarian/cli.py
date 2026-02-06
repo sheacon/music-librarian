@@ -119,7 +119,7 @@ def _open_in_qobuz(album_id: str) -> None:
     """Open an album in the Qobuz app."""
     import subprocess
 
-    url = f"https://open.qobuz.com/album/{album_id}"
+    url = f"qobuzapp://open.qobuz.com/album/{album_id}"
     subprocess.Popen(["open", url])
 
 
