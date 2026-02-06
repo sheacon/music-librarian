@@ -6,6 +6,8 @@ A CLI tool to manage a high-fidelity music library with Qobuz integration. Disco
 
 - **Library scanning** - Index your music collection organized by artist and album
 - **Album discovery** - Find missing albums by artists already in your library via Qobuz
+- **Fuzzy matching** - Find artists even with typos, accents, or alternate spellings ("Radiohed" → "Radiohead", "Beyonce" → "Beyoncé")
+- **Interactive mode** - Browse discovered albums and download, ignore, or open in Qobuz directly
 - **Popularity ranking** - Shows top 3 most popular missing albums (via Last.fm) when many exist
 - **Smart deduplication** - Automatically selects the best version when multiple editions exist:
   - Prefers higher fidelity (bit depth, then sample rate)
@@ -104,22 +106,23 @@ Find albums on Qobuz that aren't in your library:
 # Check all artists
 music-librarian discover
 
-# Check a specific artist
-music-librarian discover --artist "The Black Keys"
+# Check a specific artist (fuzzy matching handles typos/accents)
+music-librarian discover --artist "Radiohed"    # matches "Radiohead"
+music-librarian discover --artist "Beyonce"     # matches "Beyoncé"
 
 # Show all albums (not just top 3)
 music-librarian discover --artist "The Black Keys" --all
+
+# Interactive mode - download, ignore, or open albums directly
+music-librarian discover --artist "Radiohead" -I
 ```
 
 ```
 Checking Black Keys...
   Found 7 new album(s):
-    [2011] El Camino (24bit/44.1kHz)
-      https://www.qobuz.com/album/0075597947786
-    [2014] Turn Blue (24bit/44.1kHz)
-      https://www.qobuz.com/album/0075597947946
-    [2019] "Let's Rock" (24bit/48kHz)
-      https://www.qobuz.com/album/i2l0ljm2ti0rb
+    [2011] El Camino (24bit/44.1kHz) id:0075597947786
+    [2014] Turn Blue (24bit/44.1kHz) id:0075597947946
+    [2019] "Let's Rock" (24bit/48kHz) id:i2l0ljm2ti0rb
     ...and 4 more (use --all to see all)
 ```
 
@@ -130,6 +133,31 @@ The discover command:
 - Uses the original release year even for remastered editions
 - When more than 3 albums found, shows top 3 by Qobuz popularity
 - Use `--all` to see complete list
+- Fuzzy matches artist names (typos, accents, word order, partial matches)
+- Suggests similar artists if no match found ("Did you mean:")
+
+#### Interactive Mode
+
+Use `-I` / `--interactive` to browse and act on discovered albums:
+
+```
+Albums for Radiohead (5):
+  1. [1995] The Bends (24bit/96kHz)
+  2. [1997] OK Computer (24bit/96kHz)
+  3. [2000] Kid A (24bit/44.1kHz)
+
+Enter: number + action (e.g., '2d' download, '3i' ignore, '1o' open in Qobuz), or 'q' to quit
+> 2d
+
+Downloading: [1997] OK Computer...
+```
+
+Actions:
+- `2d` - Download album 2
+- `3i` - Ignore album 3 (won't show in future discovers)
+- `1o` - Open album 1 in Qobuz app
+- `1-3i` - Ignore albums 1, 2, and 3 (range)
+- `q` - Quit interactive mode
 
 ### Download Albums
 
@@ -298,9 +326,11 @@ The tool will:
 music-librarian scan [--path PATH]
     List all artists and albums in the library.
 
-music-librarian discover [--artist NAME] [--path PATH] [--all]
+music-librarian discover [--artist NAME] [--path PATH] [--all] [--interactive]
     Find new albums by artists in the library.
     Shows top 3 by popularity; use --all for complete list.
+    Use -I/--interactive to download, ignore, or open albums directly.
+    Fuzzy matches artist names (typos, accents, partial matches).
 
 music-librarian download ALBUM_ID
     Download an album from Qobuz and apply post-processing.
@@ -345,6 +375,7 @@ music-librarian ignore list
 - [httpx](https://www.python-httpx.org/) - HTTP client for Qobuz API
 - [mutagen](https://mutagen.readthedocs.io/) - Audio metadata handling
 - [rich](https://rich.readthedocs.io/) - Terminal formatting
+- [rapidfuzz](https://github.com/rapidfuzz/RapidFuzz) - Fuzzy string matching
 
 ## License
 
