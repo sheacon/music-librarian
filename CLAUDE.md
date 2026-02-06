@@ -83,8 +83,9 @@ If no match is found, suggests closest matches with "Did you mean:" prompt.
 
 The `-I` / `--interactive` flag enables interactive album selection:
 - Displays all albums with numbered indices
-- Supports shorthand input: `2d` (download), `3i` (ignore), `1-3i` (range)
+- Supports shorthand input: `2d` (download), `3i` (ignore), `1o` (open in Qobuz), `1-3i` (range)
 - Downloads call `download_album()`, ignores call `add_ignored_album()`
+- Open action launches album in Qobuz.app via URL
 - Type `q` to quit
 
 ### Library Structure Expectations

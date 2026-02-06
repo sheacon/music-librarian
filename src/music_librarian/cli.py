@@ -115,13 +115,21 @@ def scan(
     console.print(f"\n[bold]Total:[/bold] {len(artists)} artists")
 
 
+def _open_in_qobuz(album_id: str) -> None:
+    """Open an album in the Qobuz app."""
+    import subprocess
+
+    url = f"https://open.qobuz.com/album/{album_id}"
+    subprocess.Popen(["open", url])
+
+
 def _parse_interactive_input(choice: str, max_idx: int) -> list[tuple[int, str]]:
     """Parse interactive discover input.
 
     Supports:
-    - Single index: "2" (select), "2d" (download), "2i" (ignore), "2s" (skip)
+    - Single index: "2" (select), "2d" (download), "2i" (ignore), "2o" (open), "2s" (skip)
     - Range: "1-3d" (download 1, 2, 3), "1-3i" (ignore 1, 2, 3)
-    - Action only: "d", "i", "s", "q"
+    - Action only: "d", "i", "o", "s", "q"
 
     Returns list of (index, action) tuples. Index is 0 for action-only commands.
     """
@@ -135,7 +143,7 @@ def _parse_interactive_input(choice: str, max_idx: int) -> list[tuple[int, str]]
 
     # Parse range with action: "1-3d" or "1-3 d"
     import re
-    range_match = re.match(r"(\d+)\s*-\s*(\d+)\s*([dis])?", choice)
+    range_match = re.match(r"(\d+)\s*-\s*(\d+)\s*([dios])?", choice)
     if range_match:
         start, end, action = range_match.groups()
         start_idx, end_idx = int(start), int(end)
@@ -145,7 +153,7 @@ def _parse_interactive_input(choice: str, max_idx: int) -> list[tuple[int, str]]
         return [(i, action) for i in range(start_idx, end_idx + 1)]
 
     # Parse single index with optional action: "2", "2d", "2 d"
-    single_match = re.match(r"(\d+)\s*([dis])?", choice)
+    single_match = re.match(r"(\d+)\s*([dios])?", choice)
     if single_match:
         idx, action = single_match.groups()
         idx = int(idx)
@@ -183,7 +191,7 @@ def _interactive_discover(
                 )
 
         cons.print(
-            "\n[dim]Enter: number + action (e.g., '2d' download, '3i' ignore, '1-3i' range), "
+            "\n[dim]Enter: number + action (e.g., '2d' download, '3i' ignore, '1o' open in Qobuz), "
             "or 'q' to quit[/dim]"
         )
 
@@ -228,6 +236,11 @@ def _interactive_discover(
                 add_ignored_album(canonical_name, album.title)
                 cons.print(f"[dim]Ignored: [{album.year}] {album.title}[/dim]")
                 removed_indices.add(idx - 1)
+
+            elif action == "o":
+                # Open in Qobuz
+                _open_in_qobuz(album.id)
+                cons.print(f"[dim]Opened in Qobuz: [{album.year}] {album.title}[/dim]")
 
             # "s" (skip) does nothing
 
