@@ -120,6 +120,31 @@ def scan_library(library_path: Path | None = None) -> dict[str, Artist]:
     return artists
 
 
+def parse_new_folder(folder_name: str) -> tuple[str, int, str] | None:
+    """Parse folder name in format '{Artist} - [{YYYY}] {Album Title}'.
+
+    Returns (artist, year, title) tuple or None if parsing fails.
+    """
+    match = re.match(r"^(.+?)\s*-\s*\[(\d{4})\]\s*(.+)$", folder_name)
+    if match:
+        return match.group(1).strip(), int(match.group(2)), match.group(3).strip()
+    return None
+
+
+def check_volume_mounted(volume_path: Path) -> bool:
+    """Check if a network volume is mounted.
+
+    On macOS, /Volumes/music may exist as an empty stub when unmounted.
+    Checks for actual content to confirm the volume is mounted.
+    """
+    if not volume_path.exists() or not volume_path.is_dir():
+        return False
+    try:
+        return any(volume_path.iterdir())
+    except PermissionError:
+        return False
+
+
 def get_artist_path(artist_name: str, library_path: Path | None = None) -> Path:
     """Get the expected path for an artist in the library."""
     if library_path is None:

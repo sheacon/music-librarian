@@ -7,11 +7,13 @@ import pytest
 from music_librarian.library import (
     Album,
     Artist,
+    check_volume_mounted,
     get_artist_path,
     get_artist_search_variants,
     get_letter_for_artist,
     normalize_artist,
     parse_album_folder,
+    parse_new_folder,
     scan_library,
 )
 
@@ -184,3 +186,53 @@ class TestGetArtistPath:
     def test_the_prefix_stripped(self, tmp_path):
         result = get_artist_path("The Beatles", tmp_path)
         assert result == tmp_path / "B" / "Beatles"
+
+
+# --- parse_new_folder ---
+
+
+class TestParseNewFolder:
+    def test_valid(self):
+        result = parse_new_folder("Radiohead - [1997] OK Computer")
+        assert result == ("Radiohead", 1997, "OK Computer")
+
+    def test_the_prefix(self):
+        result = parse_new_folder("The Beatles - [1966] Revolver")
+        assert result == ("The Beatles", 1966, "Revolver")
+
+    def test_hyphen_in_artist(self):
+        result = parse_new_folder("Jay-Z - [2001] The Blueprint")
+        assert result == ("Jay-Z", 2001, "The Blueprint")
+
+    def test_extra_spaces(self):
+        result = parse_new_folder("Artist  -  [2020]  Album")
+        assert result == ("Artist", 2020, "Album")
+
+    def test_invalid_no_separator(self):
+        assert parse_new_folder("[2020] Album Title") is None
+
+    def test_invalid_no_year(self):
+        assert parse_new_folder("Artist - Album Title") is None
+
+    def test_invalid_empty(self):
+        assert parse_new_folder("") is None
+
+    def test_invalid_bad_year(self):
+        assert parse_new_folder("Artist - [abcd] Album") is None
+
+
+# --- check_volume_mounted ---
+
+
+class TestCheckVolumeMounted:
+    def test_mounted(self, tmp_path):
+        (tmp_path / "some_content").mkdir()
+        assert check_volume_mounted(tmp_path) is True
+
+    def test_empty_stub(self, tmp_path):
+        empty = tmp_path / "empty_mount"
+        empty.mkdir()
+        assert check_volume_mounted(empty) is False
+
+    def test_missing(self, tmp_path):
+        assert check_volume_mounted(tmp_path / "nonexistent") is False

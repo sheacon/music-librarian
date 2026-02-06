@@ -11,7 +11,7 @@ from pathlib import Path
 import httpx
 from mutagen.flac import FLAC
 
-from .config import QOBUZ_CONFIG_PATH
+from .config import DOWNLOADS_PATH, QOBUZ_CONFIG_PATH
 from .library import get_artist_search_variants
 
 
@@ -909,7 +909,7 @@ def process_album(album_path: Path) -> None:
 def download_album(url: str) -> tuple[bool, Path | None]:
     """Download an album using qobuz-dl.
 
-    Downloads to ~/Downloads with folder format: {artist} - [{year}] {album}
+    Downloads to DOWNLOADS_PATH with folder format: {artist} - [{year}] {album}
     Then applies post-processing: folder rename, metadata cleanup, artwork, ReplayGain.
 
     Args:
@@ -918,7 +918,7 @@ def download_album(url: str) -> tuple[bool, Path | None]:
     Returns:
         Tuple of (success, album_path).
     """
-    output_dir = Path.home() / "Downloads"
+    output_dir = DOWNLOADS_PATH
 
     cmd = [
         "qobuz-dl",

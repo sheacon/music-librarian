@@ -9,8 +9,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Library paths
+MUSIC_VOLUME = Path("/Volumes/music")
 LIBRARY_PATH = Path("/Volumes/music/Alphabetical")
-AAC_OUTPUT_PATH = Path.home() / "Downloads" / "qobuz-dl" / "transcoded"
+NEW_PATH = MUSIC_VOLUME / "[New]"
+DOWNLOADS_PATH = Path.home() / "Downloads" / "music-downloads"
+AAC_OUTPUT_PATH = DOWNLOADS_PATH / "transcoded"
 
 # qobuz-dl config location
 QOBUZ_CONFIG_PATH = Path.home() / ".config" / "qobuz-dl" / "config.ini"

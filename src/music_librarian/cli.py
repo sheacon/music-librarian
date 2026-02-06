@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .artwork import embed_artwork
-from .config import LASTFM_API_KEY, LIBRARY_PATH
+from .config import DOWNLOADS_PATH, LASTFM_API_KEY, LIBRARY_PATH, MUSIC_VOLUME, NEW_PATH
 from .convert import convert_album_to_aac
 from .ignore import (
     add_ignored_album,
@@ -20,7 +20,8 @@ from .ignore import (
     remove_ignored_artist,
 )
 from .lastfm import rank_albums_by_popularity
-from .library import parse_album_folder, scan_library
+from .library import check_volume_mounted, get_artist_path, parse_album_folder, parse_new_folder, scan_library
+from .transfer import delete_source, move_album, rsync_album
 from .normalize import normalize_album
 from .qobuz import (
     _normalize_album_title,
@@ -462,6 +463,210 @@ def embed_art(
         console.print(f"  Size: {embedded_kb:.1f} KB")
 
     console.print("[green]Artwork embedded successfully![/green]")
+
+
+@app.command()
+def stage(
+    name: Annotated[
+        Optional[str],
+        typer.Argument(help="Album folder name in Downloads (omit to list all)"),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Preview transfer without executing"),
+    ] = False,
+) -> None:
+    """Stage an album from Downloads to [New] on the NAS.
+
+    Transfers using rsync for integrity, then deletes the local copy.
+    The folder name should match the format '{Artist} - [{YYYY}] {Album Title}'.
+
+    If no name is given, lists all albums currently in Downloads.
+
+    Examples:
+        music-librarian stage
+        music-librarian stage "Radiohead - [1997] OK Computer"
+        music-librarian stage -n "Radiohead - [1997] OK Computer"
+    """
+    if name is None:
+        if not DOWNLOADS_PATH.exists():
+            console.print(f"[dim]Downloads folder not found: {DOWNLOADS_PATH}[/dim]")
+            return
+
+        albums = sorted(
+            [d for d in DOWNLOADS_PATH.iterdir() if d.is_dir() and parse_new_folder(d.name)],
+            key=lambda d: d.name.lower(),
+        )
+        if not albums:
+            console.print("[dim]No albums in Downloads.[/dim]")
+            return
+
+        console.print(f"[bold]Albums in Downloads ({len(albums)}):[/bold]")
+        for album_dir in albums:
+            console.print(f"  {album_dir.name}")
+        return
+
+    path = DOWNLOADS_PATH / name
+
+    if not path.exists():
+        console.print(f"[red]Folder not found: {path}[/red]")
+        raise typer.Exit(1)
+
+    if not path.is_dir():
+        console.print(f"[red]Not a directory: {path}[/red]")
+        raise typer.Exit(1)
+
+    parsed = parse_new_folder(path.name)
+    if not parsed:
+        console.print(
+            "[red]Folder name doesn't match expected format:[/red] "
+            "{Artist} - [{YYYY}] {Album Title}"
+        )
+        console.print(f"  Got: {path.name}")
+        raise typer.Exit(1)
+
+    artist, year, title = parsed
+
+    if not check_volume_mounted(MUSIC_VOLUME):
+        console.print(f"[red]Network drive not mounted: {MUSIC_VOLUME}[/red]")
+        console.print("  Mount the drive and try again.")
+        raise typer.Exit(1)
+
+    if not NEW_PATH.exists():
+        if not dry_run:
+            NEW_PATH.mkdir(parents=True, exist_ok=True)
+
+    dest_album = NEW_PATH / path.name
+    if dest_album.exists():
+        console.print(f"[red]Already exists in [New]: {dest_album}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Staging: {artist} - [{year}] {title}[/cyan]")
+    console.print(f"  From: {path}")
+    console.print(f"  To:   {dest_album}")
+
+    if dry_run:
+        console.print("\n[yellow]Dry run — no changes made.[/yellow]")
+        rsync_album(path, NEW_PATH, dry_run=True)
+        return
+
+    console.print()
+    success = rsync_album(path, NEW_PATH)
+
+    if success:
+        if dest_album.exists() and any(dest_album.iterdir()):
+            delete_source(path)
+            console.print(f"\n[green]Staged successfully![/green]")
+            console.print(f"  Location: {dest_album}")
+        else:
+            console.print(
+                "\n[red]rsync reported success but destination appears empty. "
+                "Source NOT deleted.[/red]"
+            )
+            raise typer.Exit(1)
+    else:
+        console.print("\n[red]Transfer failed. Source NOT deleted.[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def shelve(
+    name: Annotated[
+        Optional[str],
+        typer.Argument(help="Album folder name in [New] (omit to list all)"),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Preview move without executing"),
+    ] = False,
+) -> None:
+    """Shelve an album from [New] into the permanent library.
+
+    Parses the '{Artist} - [{YYYY}] {Album Title}' folder name to determine
+    the correct alphabetical location, then moves it.
+
+    If no name is given, lists all albums currently in [New].
+
+    Examples:
+        music-librarian shelve
+        music-librarian shelve "Radiohead - [1997] OK Computer"
+        music-librarian shelve -n "The Beatles - [1966] Revolver"
+    """
+    if not check_volume_mounted(MUSIC_VOLUME):
+        console.print(f"[red]Network drive not mounted: {MUSIC_VOLUME}[/red]")
+        console.print("  Mount the drive and try again.")
+        raise typer.Exit(1)
+
+    if not NEW_PATH.exists():
+        console.print(f"[red][New] folder not found: {NEW_PATH}[/red]")
+        raise typer.Exit(1)
+
+    if name is None:
+        albums = sorted(
+            [d for d in NEW_PATH.iterdir() if d.is_dir()],
+            key=lambda d: d.name.lower(),
+        )
+        if not albums:
+            console.print("[dim]No albums in [New].[/dim]")
+            return
+
+        console.print(f"[bold]Albums in [New] ({len(albums)}):[/bold]")
+        for album_dir in albums:
+            parsed = parse_new_folder(album_dir.name)
+            if parsed:
+                artist, year, title = parsed
+                dest = get_artist_path(artist, LIBRARY_PATH)
+                console.print(f"  {album_dir.name}")
+                console.print(f"    [dim]→ {dest}/[{year}] {title}[/dim]")
+            else:
+                console.print(f"  [yellow]{album_dir.name}[/yellow] [dim](unrecognized format)[/dim]")
+        return
+
+    path = NEW_PATH / name
+
+    if not path.exists():
+        console.print(f"[red]Folder not found: {path}[/red]")
+        raise typer.Exit(1)
+
+    if not path.is_dir():
+        console.print(f"[red]Not a directory: {path}[/red]")
+        raise typer.Exit(1)
+
+    parsed = parse_new_folder(path.name)
+    if not parsed:
+        console.print(
+            "[red]Folder name doesn't match expected format:[/red] "
+            "{Artist} - [{YYYY}] {Album Title}"
+        )
+        console.print(f"  Got: {path.name}")
+        raise typer.Exit(1)
+
+    artist, year, title = parsed
+    artist_path = get_artist_path(artist, LIBRARY_PATH)
+    album_folder_name = f"[{year}] {title}"
+    dest_album = artist_path / album_folder_name
+
+    console.print(f"[cyan]Shelving: {artist} - [{year}] {title}[/cyan]")
+    console.print(f"  From: {path}")
+    console.print(f"  To:   {dest_album}")
+
+    if dest_album.exists():
+        console.print(f"\n[red]Destination already exists: {dest_album}[/red]")
+        raise typer.Exit(1)
+
+    if dry_run:
+        if not artist_path.exists():
+            console.print(f"\n[yellow]Would create artist folder: {artist_path}[/yellow]")
+        console.print("[yellow]Dry run — no changes made.[/yellow]")
+        return
+
+    if not artist_path.exists():
+        artist_path.mkdir(parents=True, exist_ok=True)
+        console.print(f"  Created: {artist_path}")
+
+    move_album(path, dest_album)
+    console.print(f"\n[green]Shelved successfully![/green]")
+    console.print(f"  Location: {dest_album}")
 
 
 @ignore_app.command("add")
