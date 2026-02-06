@@ -8,6 +8,7 @@ from music_librarian.library import (
     Album,
     Artist,
     check_volume_mounted,
+    find_matching_artist,
     get_artist_path,
     get_artist_search_variants,
     get_letter_for_artist,
@@ -236,3 +237,46 @@ class TestCheckVolumeMounted:
 
     def test_missing(self, tmp_path):
         assert check_volume_mounted(tmp_path / "nonexistent") is False
+
+
+# --- find_matching_artist ---
+
+
+class TestFindMatchingArtist:
+    def test_exact_match(self):
+        artists = ["Radiohead", "The Beatles", "Pink Floyd"]
+        assert find_matching_artist("Radiohead", artists) == "Radiohead"
+
+    def test_accent_mismatch(self):
+        artists = ["Beyoncé", "Radiohead"]
+        assert find_matching_artist("Beyonce", artists) == "Beyoncé"
+
+    def test_typo_tolerance(self):
+        artists = ["Radiohead", "The Beatles"]
+        assert find_matching_artist("Radiohed", artists) == "Radiohead"
+
+    def test_word_reordering(self):
+        artists = ["The Black Keys", "Radiohead"]
+        assert find_matching_artist("Black Keys The", artists) == "The Black Keys"
+
+    def test_partial_match(self):
+        artists = ["The Beatles", "Radiohead"]
+        assert find_matching_artist("Beatles", artists) == "The Beatles"
+
+    def test_case_insensitive(self):
+        artists = ["Radiohead"]
+        assert find_matching_artist("RADIOHEAD", artists) == "Radiohead"
+
+    def test_no_match_below_threshold(self):
+        artists = ["Radiohead", "The Beatles"]
+        assert find_matching_artist("Completely Different", artists) is None
+
+    def test_empty_list(self):
+        assert find_matching_artist("Radiohead", []) is None
+
+    def test_custom_threshold(self):
+        artists = ["Radiohead", "The Beatles"]
+        # Very high threshold should reject close but not exact matches
+        assert find_matching_artist("Radiohea", artists, threshold=99) is None
+        # Lower threshold should accept
+        assert find_matching_artist("Radiohea", artists, threshold=80) == "Radiohead"

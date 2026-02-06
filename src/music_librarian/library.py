@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from rapidfuzz import fuzz, process
+
 from .config import LIBRARY_PATH
 
 
@@ -153,3 +155,34 @@ def get_artist_path(artist_name: str, library_path: Path | None = None) -> Path:
     letter = get_letter_for_artist(artist_name)
     normalized = normalize_artist(artist_name)
     return library_path / letter / normalized
+
+
+def find_matching_artist(query: str, artists: list[str], threshold: int = 80) -> str | None:
+    """Find best matching artist using fuzzy matching.
+
+    Args:
+        query: Artist name to search for.
+        artists: List of artist names to match against.
+        threshold: Minimum score (0-100) to consider a match.
+
+    Returns:
+        Best matching artist name, or None if no match above threshold.
+    """
+    if not artists:
+        return None
+
+    # Create lowercase mapping to handle case-insensitive matching
+    lower_to_original = {a.lower(): a for a in artists}
+    lower_artists = list(lower_to_original.keys())
+
+    # Use token_set_ratio for word order independence
+    result = process.extractOne(
+        query.lower(),
+        lower_artists,
+        scorer=fuzz.token_set_ratio,
+        score_cutoff=threshold,
+    )
+
+    if result:
+        return lower_to_original[result[0]]
+    return None
