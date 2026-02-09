@@ -51,9 +51,11 @@ def get_artist_search_variants(name: str) -> list[str]:
 def parse_album_folder(folder_name: str) -> tuple[int, str] | None:
     """Parse album folder name in format '[YYYY] Album Title'.
 
+    Also handles 'Artist - [YYYY] Album Title' (e.g. qobuz-dl downloads).
+
     Returns (year, title) tuple or None if parsing fails.
     """
-    match = re.match(r"\[(\d{4})\]\s*(.+)", folder_name)
+    match = re.match(r"(?:.+ - )?\[(\d{4})\]\s*(.+)", folder_name)
     if match:
         return int(match.group(1)), match.group(2)
     return None
