@@ -880,7 +880,7 @@ def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
     first_audio = FLAC(flac_files[0])
     album_name = first_audio.get("album", [None])[0]
 
-    result = {"lrclib": 0, "genius": 0, "not_found": 0}
+    result = {"lrclib": 0, "genius": 0, "not_found": 0, "skipped": 0}
     genius_key = GENIUS_API_KEY
 
     for audio_file in flac_files:
@@ -891,6 +891,12 @@ def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
         if not artist or not title:
             print(f"  {audio_file.stem}: skipped (missing metadata)")
             result["not_found"] += 1
+            continue
+
+        # Skip if lyrics already exist
+        existing_lyrics = audio.get("lyrics", [None])[0]
+        if existing_lyrics:
+            result["skipped"] += 1
             continue
 
         print(f"  {title}...", end=" ", flush=True)
@@ -1046,6 +1052,7 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
     lrclib_count = lyrics_result.get("lrclib", 0)
     genius_count = lyrics_result.get("genius", 0)
     not_found = lyrics_result.get("not_found", 0)
+    skipped = lyrics_result.get("skipped", 0)
     if lrclib_count or genius_count:
         parts = []
         if lrclib_count:
@@ -1055,6 +1062,8 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
         print(f"  Found: {', '.join(parts)}")
     if not_found:
         print(f"  Not found: {not_found} tracks")
+    if skipped:
+        print(f"  Skipped: {skipped} tracks (already have lyrics)")
 
     # Embed artwork (ensures proper embedding even if qobuz-dl's --embed-art fails)
     print("Embedding artwork...", end=" ", flush=True)
