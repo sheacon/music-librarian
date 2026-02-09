@@ -889,7 +889,6 @@ def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
         title = audio.get("title", [None])[0]
 
         if not artist or not title:
-            print(f"  {audio_file.stem}: skipped (missing metadata)")
             result["not_found"] += 1
             continue
 
@@ -899,17 +898,14 @@ def fetch_lyrics_for_album(album_path: Path) -> dict[str, int]:
             result["skipped"] += 1
             continue
 
-        print(f"  {title}...", end=" ", flush=True)
         lyrics, source = get_lyrics(artist, title, album_name, genius_key)
 
         if lyrics:
             audio["lyrics"] = [lyrics]
             audio.save()
             result[source] += 1
-            print(f"found ({source})")
         else:
             result["not_found"] += 1
-            print("not found")
 
     return result
 
@@ -1047,8 +1043,9 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
         print("skipped (not found)")
 
     # Fetch lyrics
-    print("Fetching lyrics...")
+    print("Fetching lyrics...", end=" ", flush=True)
     lyrics_result = fetch_lyrics_for_album(album_path)
+    print("done")
     lrclib_count = lyrics_result.get("lrclib", 0)
     genius_count = lyrics_result.get("genius", 0)
     not_found = lyrics_result.get("not_found", 0)
@@ -1056,9 +1053,9 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
     if lrclib_count or genius_count:
         parts = []
         if lrclib_count:
-            parts.append(f"{lrclib_count} from LRCLIB")
+            parts.append(f"{lrclib_count} LRCLIB")
         if genius_count:
-            parts.append(f"{genius_count} from Genius")
+            parts.append(f"{genius_count} Genius")
         print(f"  Found: {', '.join(parts)}")
     if not_found:
         print(f"  Not found: {not_found} tracks")
