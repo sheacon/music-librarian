@@ -511,6 +511,15 @@ def get_album_tracks(
         return tracks
 
 
+def _to_org_url(url: str) -> str:
+    """Convert a Qobuz image URL to its original-resolution version.
+
+    Qobuz image URLs end with a size suffix like _600.jpg or _230.jpg.
+    Replacing the numeric suffix with _org gets the full-resolution original.
+    """
+    return re.sub(r"_\d+\.jpg$", "_org.jpg", url)
+
+
 def get_album_artwork_url(
     album_id: str,
     app_id: str | None = None,
@@ -524,7 +533,7 @@ def get_album_artwork_url(
         secret: Qobuz secret. If None, reads from config.
 
     Returns:
-        URL to the largest available cover image, or None if not found.
+        URL to the original-resolution cover image, or None if not found.
     """
     if app_id is None or secret is None:
         app_id, secret = get_qobuz_credentials()
@@ -542,10 +551,10 @@ def get_album_artwork_url(
         data = response.json()
         image = data.get("image", {})
 
-        # Try to get the largest available image
-        for size in ["mega", "extralarge", "large", "medium", "small"]:
+        # Get any available image URL and convert to original resolution
+        for size in ["large", "medium", "small", "thumbnail"]:
             if size in image and image[size]:
-                return image[size]
+                return _to_org_url(image[size])
 
         return None
 
@@ -648,12 +657,12 @@ def fetch_qobuz_artwork(album_path: Path) -> bool:
     if not artist_name or not album_title:
         return False
 
-    print("Fetching artwork from Qobuz...", end=" ", flush=True)
     standard_id = find_standard_edition_id(artist_name, album_title)
     if not standard_id:
-        print("not found")
+        print("Fetching artwork from Qobuz... not found")
         return False
 
+    print(f"Fetching artwork from Qobuz (id: {standard_id})...", end=" ", flush=True)
     if download_standard_artwork(album_path, standard_id):
         print("done")
         return True
@@ -1147,7 +1156,7 @@ def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path
 
     # Replace artwork with standard edition if this is a merged album
     if standard_id:
-        print("Fetching standard edition artwork...", end=" ", flush=True)
+        print(f"Fetching standard edition artwork (id: {standard_id})...", end=" ", flush=True)
         if download_standard_artwork(album_path, standard_id):
             print("done")
         else:

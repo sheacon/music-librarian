@@ -15,10 +15,32 @@ from music_librarian.qobuz import (
     _normalize_album_title,
     _normalize_track_title,
     _strip_edition_markers,
+    _to_org_url,
     fetch_qobuz_artwork,
     find_standard_edition_id,
     get_qobuz_credentials,
 )
+
+
+# --- _to_org_url ---
+
+
+class TestToOrgUrl:
+    def test_replaces_600_suffix(self):
+        url = "https://static.qobuz.com/images/covers/ab/cd/1234_600.jpg"
+        assert _to_org_url(url) == "https://static.qobuz.com/images/covers/ab/cd/1234_org.jpg"
+
+    def test_replaces_230_suffix(self):
+        url = "https://static.qobuz.com/images/covers/ab/cd/1234_230.jpg"
+        assert _to_org_url(url) == "https://static.qobuz.com/images/covers/ab/cd/1234_org.jpg"
+
+    def test_replaces_50_suffix(self):
+        url = "https://static.qobuz.com/images/covers/ab/cd/1234_50.jpg"
+        assert _to_org_url(url) == "https://static.qobuz.com/images/covers/ab/cd/1234_org.jpg"
+
+    def test_no_match_returns_unchanged(self):
+        url = "https://example.com/image.png"
+        assert _to_org_url(url) == url
 
 
 # --- _is_compilation_or_live ---
