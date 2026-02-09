@@ -39,6 +39,11 @@ class TestNormalizeAlbum:
                 "  Peak:     0.950000 (-0.45 dB)\n"
                 "  Gain:       3.50 dB\n"
                 "\n"
+                "Track 2:\n"
+                "  Loudness:   -13.80 LUFS\n"
+                "  Peak:     0.920000 (-0.72 dB)\n"
+                "  Gain:       4.20 dB\n"
+                "\n"
                 "Album:\n"
                 "  Loudness:   -15.20 LUFS\n"
                 "  Peak:     0.980000 (-0.18 dB)\n"
@@ -49,6 +54,7 @@ class TestNormalizeAlbum:
 
         result = normalize_album(album)
         assert result is not None
+        assert result["tracks_count"] == 2
         assert result["loudness"] == pytest.approx(-15.20)
         assert result["peak"] == pytest.approx(0.98)
         assert result["peak_db"] == pytest.approx(-0.18)
@@ -78,7 +84,7 @@ class TestNormalizeAlbum:
         )
 
         result = normalize_album(album)
-        assert result == {}
+        assert result == {"tracks_count": 0}
 
     @patch("music_librarian.normalize.subprocess.run")
     def test_calls_rsgain_with_correct_args(self, mock_run, tmp_path):

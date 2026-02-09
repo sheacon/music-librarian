@@ -1086,12 +1086,11 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
     else:
         print("Applying ReplayGain...", end=" ", flush=True)
         gain_info = normalize_album(album_path)
-        if gain_info:
+        if gain_info and "loudness" in gain_info:
+            tracks_count = gain_info.get("tracks_count", 0)
             print("done")
-            print("  Album:")
-            print(f"    Loudness: {gain_info['loudness']:8.2f} LUFS")
-            print(f"    Peak:     {gain_info['peak']:8.6f} ({gain_info['peak_db']:.2f} dB)")
-            print(f"    Gain:     {gain_info['gain']:8.2f} dB")
+            print(f"  Track-Level Tags: {tracks_count} tracks tagged")
+            print(f"  Album-Level Tag:  {gain_info['gain']:+.2f} dB gain, {gain_info['loudness']:.2f} LUFS, {gain_info['peak']:.6f} peak ({gain_info['peak_db']:.2f} dB)")
         else:
             print("failed")
 

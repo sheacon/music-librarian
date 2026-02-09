@@ -51,9 +51,19 @@ def normalize_album(album_path: Path) -> dict | None:
     if result.returncode != 0:
         return None
 
-    # Parse album gain info from output
+    # Parse gain info from output
     output = result.stdout + result.stderr
-    album_info = {}
+    gain_info = {}
+
+    # Count track-level gains
+    track_matches = re.findall(
+        r"Track\s+\d+:\s*\n"
+        r"\s*Loudness:\s*[-\d.]+\s*LUFS\s*\n"
+        r"\s*Peak:\s*[-\d.]+\s*\([-\d.]+\s*dB\)\s*\n"
+        r"\s*Gain:\s*[-\d.]+\s*dB",
+        output,
+    )
+    gain_info["tracks_count"] = len(track_matches)
 
     # Look for album section and extract values
     album_match = re.search(
@@ -65,11 +75,9 @@ def normalize_album(album_path: Path) -> dict | None:
     )
 
     if album_match:
-        album_info = {
-            "loudness": float(album_match.group(1)),
-            "peak": float(album_match.group(2)),
-            "peak_db": float(album_match.group(3)),
-            "gain": float(album_match.group(4)),
-        }
+        gain_info["loudness"] = float(album_match.group(1))
+        gain_info["peak"] = float(album_match.group(2))
+        gain_info["peak_db"] = float(album_match.group(3))
+        gain_info["gain"] = float(album_match.group(4))
 
-    return album_info
+    return gain_info
