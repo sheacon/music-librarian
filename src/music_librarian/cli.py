@@ -497,8 +497,9 @@ def process(
         console.print(f"[cyan]Previewing {len(albums)} album(s)...[/cyan]\n")
         albums_with_changes = 0
 
-        for album_path in albums:
-            console.print(f"[bold]{album_path.parent.name} / {album_path.name}[/bold]")
+        for i, album_path in enumerate(albums, 1):
+            prefix = f"({i}/{len(albums)}) " if len(albums) > 1 else ""
+            console.print(f"[bold]{prefix}{album_path.parent.name} / {album_path.name}[/bold]")
             try:
                 preview = preview_album_processing(album_path)
                 if _print_preview(album_path, preview):
@@ -516,8 +517,9 @@ def process(
         succeeded = 0
         failed = 0
 
-        for album_path in albums:
-            console.print(f"[bold]{album_path.parent.name} / {album_path.name}[/bold]")
+        for i, album_path in enumerate(albums, 1):
+            prefix = f"({i}/{len(albums)}) " if len(albums) > 1 else ""
+            console.print(f"[bold]{prefix}{album_path.parent.name} / {album_path.name}[/bold]")
             try:
                 process_album(album_path)
                 console.print("[green]  Done[/green]\n")
