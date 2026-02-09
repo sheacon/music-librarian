@@ -1080,17 +1080,20 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
         print("skipped (no cover found)")
 
     # Apply ReplayGain normalization
-    print("Applying ReplayGain...", end=" ", flush=True)
-    from .normalize import normalize_album
-    gain_info = normalize_album(album_path)
-    if gain_info:
-        print("done")
-        print("  Album:")
-        print(f"    Loudness: {gain_info['loudness']:8.2f} LUFS")
-        print(f"    Peak:     {gain_info['peak']:8.6f} ({gain_info['peak_db']:.2f} dB)")
-        print(f"    Gain:     {gain_info['gain']:8.2f} dB")
+    from .normalize import has_replaygain_tags, normalize_album
+    if has_replaygain_tags(album_path):
+        print("Applying ReplayGain... skipped (already tagged)")
     else:
-        print("failed")
+        print("Applying ReplayGain...", end=" ", flush=True)
+        gain_info = normalize_album(album_path)
+        if gain_info:
+            print("done")
+            print("  Album:")
+            print(f"    Loudness: {gain_info['loudness']:8.2f} LUFS")
+            print(f"    Peak:     {gain_info['peak']:8.6f} ({gain_info['peak_db']:.2f} dB)")
+            print(f"    Gain:     {gain_info['gain']:8.2f} dB")
+        else:
+            print("failed")
 
 
 def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path | None]:

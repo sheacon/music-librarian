@@ -5,6 +5,25 @@ import subprocess
 from pathlib import Path
 
 
+def has_replaygain_tags(album_path: Path) -> bool:
+    """Check if all tracks in an album already have ReplayGain tags.
+
+    Returns True if every FLAC file has both track and album gain tags.
+    """
+    from mutagen.flac import FLAC
+
+    flac_files = list(album_path.glob("*.flac"))
+    if not flac_files:
+        return False
+
+    for f in flac_files:
+        audio = FLAC(f)
+        if not audio.get("replaygain_track_gain") or not audio.get("replaygain_album_gain"):
+            return False
+
+    return True
+
+
 def normalize_album(album_path: Path) -> dict | None:
     """Apply ReplayGain tags to an album using rsgain.
 
