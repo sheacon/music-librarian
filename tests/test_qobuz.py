@@ -2,6 +2,7 @@
 
 import configparser
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -14,6 +15,8 @@ from music_librarian.qobuz import (
     _normalize_album_title,
     _normalize_track_title,
     _strip_edition_markers,
+    fetch_qobuz_artwork,
+    find_standard_edition_id,
     get_qobuz_credentials,
 )
 
@@ -492,3 +495,140 @@ class TestGetQobuzCredentials:
 
         with pytest.raises(ValueError):
             get_qobuz_credentials(config_path)
+
+
+# --- find_standard_edition_id ---
+
+
+class TestFindStandardEditionId:
+    @patch("music_librarian.qobuz._fetch_artist_albums_raw")
+    @patch("music_librarian.qobuz.search_artist")
+    def test_finds_standard_by_earliest_year_fewest_tracks(
+        self, mock_search, mock_fetch
+    ):
+        mock_search.return_value = {"id": 123, "name": "Artist"}
+        mock_fetch.return_value = [
+            _make_album(id="1", title="Album (Deluxe)", year=2000, tracks_count=15),
+            _make_album(id="2", title="Album", year=2000, tracks_count=10),
+            _make_album(id="3", title="Album (Remastered 2020)", year=2020, tracks_count=10),
+        ]
+
+        result = find_standard_edition_id("Artist", "Album")
+        assert result == "2"
+
+    @patch("music_librarian.qobuz._fetch_artist_albums_raw")
+    @patch("music_librarian.qobuz.search_artist")
+    def test_matches_by_normalized_title(self, mock_search, mock_fetch):
+        mock_search.return_value = {"id": 123, "name": "Artist"}
+        mock_fetch.return_value = [
+            _make_album(id="1", title="OK Computer"),
+            _make_album(id="2", title="The Bends"),
+        ]
+
+        result = find_standard_edition_id("Artist", "OK Computer (Deluxe Edition)")
+        assert result == "1"
+
+    @patch("music_librarian.qobuz._fetch_artist_albums_raw")
+    @patch("music_librarian.qobuz.search_artist")
+    def test_no_match_returns_none(self, mock_search, mock_fetch):
+        mock_search.return_value = {"id": 123, "name": "Artist"}
+        mock_fetch.return_value = [
+            _make_album(id="1", title="Different Album"),
+        ]
+
+        result = find_standard_edition_id("Artist", "Nonexistent Album")
+        assert result is None
+
+    @patch("music_librarian.qobuz.search_artist")
+    def test_artist_not_found_returns_none(self, mock_search):
+        mock_search.return_value = None
+
+        result = find_standard_edition_id("Unknown Artist", "Album")
+        assert result is None
+
+    @patch("music_librarian.qobuz._fetch_artist_albums_raw")
+    @patch("music_librarian.qobuz.search_artist")
+    def test_no_albums_returns_none(self, mock_search, mock_fetch):
+        mock_search.return_value = {"id": 123, "name": "Artist"}
+        mock_fetch.return_value = []
+
+        result = find_standard_edition_id("Artist", "Album")
+        assert result is None
+
+
+# --- fetch_qobuz_artwork ---
+
+
+class TestFetchQobuzArtwork:
+    def _make_mock_flac(self, artist: str, album: str) -> MagicMock:
+        """Create a mock FLAC object with metadata."""
+        mock = MagicMock()
+        mock.get = lambda key, default=None: {
+            "albumartist": [artist],
+            "album": [album],
+        }.get(key, default)
+        return mock
+
+    @patch("music_librarian.qobuz.download_standard_artwork")
+    @patch("music_librarian.qobuz.find_standard_edition_id")
+    @patch("music_librarian.qobuz.FLAC")
+    def test_success_path(self, mock_flac_cls, mock_find, mock_download, tmp_path):
+        mock_find.return_value = "12345"
+        mock_download.return_value = True
+        mock_flac_cls.return_value = self._make_mock_flac("Radiohead", "OK Computer")
+
+        # Create dummy .flac files so glob finds them
+        (tmp_path / "01 - Track.flac").touch()
+
+        result = fetch_qobuz_artwork(tmp_path)
+        assert result is True
+        mock_find.assert_called_once_with("Radiohead", "OK Computer")
+        mock_download.assert_called_once_with(tmp_path, "12345")
+
+    @patch("music_librarian.qobuz.find_standard_edition_id")
+    @patch("music_librarian.qobuz.FLAC")
+    def test_not_found_returns_false(self, mock_flac_cls, mock_find, tmp_path):
+        mock_find.return_value = None
+        mock_flac_cls.return_value = self._make_mock_flac("Artist", "Album")
+
+        (tmp_path / "01 - Track.flac").touch()
+
+        result = fetch_qobuz_artwork(tmp_path)
+        assert result is False
+
+    def test_no_flac_files_returns_false(self, tmp_path):
+        result = fetch_qobuz_artwork(tmp_path)
+        assert result is False
+
+    @patch("music_librarian.qobuz.download_standard_artwork")
+    @patch("music_librarian.qobuz.find_standard_edition_id")
+    @patch("music_librarian.qobuz.FLAC")
+    def test_reads_metadata_from_first_track(
+        self, mock_flac_cls, mock_find, mock_download, tmp_path
+    ):
+        mock_find.return_value = "99"
+        mock_download.return_value = True
+        mock_flac_cls.return_value = self._make_mock_flac("The Beatles", "Abbey Road")
+
+        (tmp_path / "01 - First.flac").touch()
+        (tmp_path / "02 - Second.flac").touch()
+
+        fetch_qobuz_artwork(tmp_path)
+        # Should read from first file (sorted order)
+        mock_flac_cls.assert_called_once_with(tmp_path / "01 - First.flac")
+        mock_find.assert_called_once_with("The Beatles", "Abbey Road")
+
+    @patch("music_librarian.qobuz.download_standard_artwork")
+    @patch("music_librarian.qobuz.find_standard_edition_id")
+    @patch("music_librarian.qobuz.FLAC")
+    def test_download_failure_returns_false(
+        self, mock_flac_cls, mock_find, mock_download, tmp_path
+    ):
+        mock_find.return_value = "12345"
+        mock_download.return_value = False
+        mock_flac_cls.return_value = self._make_mock_flac("Artist", "Album")
+
+        (tmp_path / "01 - Track.flac").touch()
+
+        result = fetch_qobuz_artwork(tmp_path)
+        assert result is False

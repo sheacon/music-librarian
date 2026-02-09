@@ -331,13 +331,13 @@ def search_artist(
     return None
 
 
-def get_artist_albums(
+def _fetch_artist_albums_raw(
     artist_id: str,
     app_id: str | None = None,
     secret: str | None = None,
     albums_only: bool = True,
 ) -> list[QobuzAlbum]:
-    """Get all albums for an artist from Qobuz.
+    """Fetch all albums for an artist from Qobuz, before deduplication.
 
     Args:
         artist_id: Qobuz artist ID.
@@ -346,7 +346,7 @@ def get_artist_albums(
         albums_only: If True, exclude singles and EPs (< MIN_ALBUM_TRACKS tracks).
 
     Returns:
-        List of QobuzAlbum objects.
+        List of QobuzAlbum objects (not deduplicated).
     """
     if app_id is None or secret is None:
         app_id, secret = get_qobuz_credentials()
@@ -417,7 +417,27 @@ def get_artist_albums(
                     )
                 )
 
-    # Deduplicate albums: prefer higher fidelity, then fewer tracks (standard edition)
+    return albums
+
+
+def get_artist_albums(
+    artist_id: str,
+    app_id: str | None = None,
+    secret: str | None = None,
+    albums_only: bool = True,
+) -> list[QobuzAlbum]:
+    """Get all albums for an artist from Qobuz.
+
+    Args:
+        artist_id: Qobuz artist ID.
+        app_id: Qobuz app ID. If None, reads from config.
+        secret: Qobuz secret. If None, reads from config.
+        albums_only: If True, exclude singles and EPs (< MIN_ALBUM_TRACKS tracks).
+
+    Returns:
+        List of deduplicated QobuzAlbum objects.
+    """
+    albums = _fetch_artist_albums_raw(artist_id, app_id, secret, albums_only)
     return _deduplicate_albums(albums)
 
 
@@ -571,6 +591,74 @@ def download_standard_artwork(album_path: Path, standard_id: str) -> bool:
             return True
 
     except Exception:
+        return False
+
+
+def find_standard_edition_id(artist_name: str, album_title: str) -> str | None:
+    """Find the Qobuz album ID for the standard edition of an album.
+
+    Searches Qobuz for the artist, fetches all their albums, and finds the
+    standard edition (earliest year, fewest tracks) matching the given title.
+
+    Args:
+        artist_name: Artist name to search for.
+        album_title: Album title to match (edition markers will be stripped).
+
+    Returns:
+        Qobuz album ID of the standard edition, or None if not found.
+    """
+    artist = search_artist(artist_name)
+    if not artist:
+        return None
+
+    albums = _fetch_artist_albums_raw(str(artist["id"]))
+    if not albums:
+        return None
+
+    target = _normalize_album_title(album_title)
+    matches = [a for a in albums if _normalize_album_title(a.title) == target]
+    if not matches:
+        return None
+
+    # Standard edition: earliest year, fewest tracks
+    standard = sorted(matches, key=lambda a: (a.year, a.tracks_count))[0]
+    return standard.id
+
+
+def fetch_qobuz_artwork(album_path: Path) -> bool:
+    """Fetch standard edition artwork from Qobuz for an album.
+
+    Reads artist and album info from FLAC metadata, finds the standard edition
+    on Qobuz, and downloads its cover artwork.
+
+    Args:
+        album_path: Path to album folder containing FLAC files.
+
+    Returns:
+        True if artwork was successfully fetched, False otherwise.
+    """
+    flac_files = sorted(album_path.glob("*.flac"))
+    if not flac_files:
+        return False
+
+    audio = FLAC(flac_files[0])
+    artist_name = audio.get("albumartist", audio.get("artist", [None]))[0]
+    album_title = audio.get("album", [None])[0]
+
+    if not artist_name or not album_title:
+        return False
+
+    print("Fetching artwork from Qobuz...", end=" ", flush=True)
+    standard_id = find_standard_edition_id(artist_name, album_title)
+    if not standard_id:
+        print("not found")
+        return False
+
+    if download_standard_artwork(album_path, standard_id):
+        print("done")
+        return True
+    else:
+        print("failed")
         return False
 
 
@@ -919,10 +1007,11 @@ def preview_album_processing(album_path: Path) -> dict:
     return result
 
 
-def process_album(album_path: Path) -> None:
+def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
     """Apply post-processing to an album.
 
     Runs all post-processing steps:
+    - Fetch standard edition artwork from Qobuz (optional)
     - Normalize track metadata (artist, album/track titles, edition markers)
     - Fetch genre from Last.fm
     - Fetch lyrics from LRCLIB/Genius
@@ -931,7 +1020,13 @@ def process_album(album_path: Path) -> None:
 
     Args:
         album_path: Path to album folder.
+        fetch_artwork: If True, fetch artwork from Qobuz before processing.
+            Set to False when called from download_album to avoid double-fetching.
     """
+    # Fetch artwork from Qobuz (standard edition)
+    if fetch_artwork:
+        fetch_qobuz_artwork(album_path)
+
     # Normalize track metadata (artist, album title, track title)
     print("Normalizing metadata...", end=" ", flush=True)
     tracks_modified = normalize_track_metadata(album_path)
@@ -1052,7 +1147,7 @@ def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path
         else:
             print("failed (keeping original)")
 
-    # Run post-processing
-    process_album(album_path)
+    # Run post-processing (skip artwork fetch since we handle it above)
+    process_album(album_path, fetch_artwork=False)
 
     return True, album_path
