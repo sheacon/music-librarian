@@ -146,9 +146,20 @@ class TestResizeImageToTarget:
 
     def test_respects_min_dimension(self, tmp_path):
         cover = tmp_path / "cover.jpg"
-        # Create a moderately sized image and request very small output
-        _create_test_image(cover, 600, 600)
+        # Create a large image and request very small output
+        _create_test_image(cover, 3000, 3000, size_bytes=True)
         data = resize_image_to_target(cover, 100)  # Very small target
         result = Image.open(io.BytesIO(data))
-        # Should respect MIN_DIMENSION (500px)
+        # Should not downscale below MIN_DIMENSION (1600px)
         assert result.width >= MIN_DIMENSION or result.height >= MIN_DIMENSION
+
+    def test_downscales_before_reducing_quality(self, tmp_path):
+        cover = tmp_path / "cover.jpg"
+        _create_large_image(cover, MAX_IMAGE_SIZE + 1)
+        if cover.stat().st_size <= MAX_IMAGE_SIZE:
+            pytest.skip("Could not create large enough test image")
+        data = resize_image_to_target(cover, MAX_IMAGE_SIZE)
+        result = Image.open(io.BytesIO(data))
+        # Original is 4000x4000; strategy should downscale dimensions first,
+        # so the output should be smaller than the original
+        assert result.width < 4000 or result.height < 4000
