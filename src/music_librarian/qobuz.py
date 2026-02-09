@@ -1112,8 +1112,6 @@ def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path
         "qobuz-dl",
         "dl",
         url,
-        "--embed-art",
-        "--no-db",
         "-d", str(output_dir),
         "--folder-format", "{artist} - [{year}] {album}",
     ]
