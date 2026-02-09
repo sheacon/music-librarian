@@ -1076,12 +1076,15 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
     from .artwork import embed_artwork
     art_result = embed_artwork(album_path)
     if art_result["cover_found"]:
-        size_kb = art_result["embedded_size"] / 1024
-        if art_result["was_resized"]:
-            orig_kb = art_result["original_size"] / 1024
-            print(f"done (resized {orig_kb:.0f}KB → {size_kb:.0f}KB)")
+        if art_result["tracks_skipped"] and not art_result["tracks_processed"]:
+            print("skipped (already embedded)")
         else:
-            print(f"done ({size_kb:.0f}KB)")
+            size_kb = art_result["embedded_size"] / 1024
+            if art_result["was_resized"]:
+                orig_kb = art_result["original_size"] / 1024
+                print(f"done (resized {orig_kb:.0f}KB → {size_kb:.0f}KB)")
+            else:
+                print(f"done ({size_kb:.0f}KB)")
     else:
         print("skipped (no cover found)")
 

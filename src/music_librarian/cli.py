@@ -620,19 +620,26 @@ def embed_art(
         raise typer.Exit(1)
 
     console.print(f"  Cover: {result['cover_path'].name}")
-    console.print(f"  Tracks processed: {result['tracks_processed']}")
 
-    original_kb = result["original_size"] / 1024
-    embedded_kb = result["embedded_size"] / 1024
-
-    if result["was_resized"]:
-        console.print(
-            f"  [yellow]Resized:[/yellow] {original_kb:.1f} KB → {embedded_kb:.1f} KB"
-        )
+    if result["tracks_skipped"] and not result["tracks_processed"]:
+        console.print(f"  Tracks skipped: {result['tracks_skipped']} (already embedded)")
+        console.print("[green]Artwork already up to date.[/green]")
     else:
-        console.print(f"  Size: {embedded_kb:.1f} KB")
+        console.print(f"  Tracks processed: {result['tracks_processed']}")
+        if result["tracks_skipped"]:
+            console.print(f"  Tracks skipped: {result['tracks_skipped']} (already embedded)")
 
-    console.print("[green]Artwork embedded successfully![/green]")
+        original_kb = result["original_size"] / 1024
+        embedded_kb = result["embedded_size"] / 1024
+
+        if result["was_resized"]:
+            console.print(
+                f"  [yellow]Resized:[/yellow] {original_kb:.1f} KB → {embedded_kb:.1f} KB"
+            )
+        else:
+            console.print(f"  Size: {embedded_kb:.1f} KB")
+
+        console.print("[green]Artwork embedded successfully![/green]")
 
 
 def _open_in_cog(album_path: Path) -> None:

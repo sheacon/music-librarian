@@ -169,15 +169,25 @@ def get_image_data(image_path: Path, max_size: int = MAX_IMAGE_SIZE) -> tuple[by
     return resized_data, "image/jpeg"
 
 
-def embed_artwork_in_track(track_path: Path, image_data: bytes, mime_type: str) -> None:
+def embed_artwork_in_track(track_path: Path, image_data: bytes, mime_type: str) -> bool:
     """Embed artwork in a FLAC track.
+
+    Skips writing if the existing front cover matches by size.
 
     Args:
         track_path: Path to FLAC file.
         image_data: Image data as bytes.
         mime_type: MIME type of image (image/jpeg or image/png).
+
+    Returns:
+        True if artwork was embedded, False if skipped (already matches).
     """
     audio = FLAC(track_path)
+
+    # Skip if existing front cover matches by size
+    for pic in audio.pictures:
+        if pic.type == 3 and len(pic.data) == len(image_data):
+            return False
 
     # Create picture object
     picture = Picture()
@@ -194,6 +204,7 @@ def embed_artwork_in_track(track_path: Path, image_data: bytes, mime_type: str) 
     audio.clear_pictures()
     audio.add_picture(picture)
     audio.save()
+    return True
 
 
 def embed_artwork(album_path: Path) -> dict:
@@ -218,6 +229,7 @@ def embed_artwork(album_path: Path) -> dict:
         "embedded_size": 0,
         "was_resized": False,
         "tracks_processed": 0,
+        "tracks_skipped": 0,
     }
 
     # Find cover image
@@ -237,7 +249,9 @@ def embed_artwork(album_path: Path) -> dict:
     # Find and process all FLAC files
     flac_files = sorted(album_path.glob("*.flac"))
     for track_path in flac_files:
-        embed_artwork_in_track(track_path, image_data, mime_type)
-        result["tracks_processed"] += 1
+        if embed_artwork_in_track(track_path, image_data, mime_type):
+            result["tracks_processed"] += 1
+        else:
+            result["tracks_skipped"] += 1
 
     return result
