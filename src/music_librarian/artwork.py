@@ -52,6 +52,25 @@ def find_cover_image(album_path: Path) -> Path | None:
     return None
 
 
+def _save_jpeg(img: Image.Image, quality: int) -> bytes:
+    """Save image as JPEG and return the bytes."""
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=quality)
+    return buffer.getvalue()
+
+
+def _resize_to(img: Image.Image, size: int) -> Image.Image:
+    """Resize image so its smaller dimension equals size, preserving aspect ratio."""
+    width, height = img.size
+    if width < height:
+        new_width = size
+        new_height = int(height * (size / width))
+    else:
+        new_height = size
+        new_width = int(width * (size / height))
+    return img.resize((new_width, new_height), Image.LANCZOS)
+
+
 def resize_image_to_target(image_path: Path, max_size: int = MAX_IMAGE_SIZE) -> bytes:
     """Resize image to fit under max_size bytes.
 
@@ -59,9 +78,10 @@ def resize_image_to_target(image_path: Path, max_size: int = MAX_IMAGE_SIZE) -> 
     JPEG quality only if still over budget.
 
     1. Convert PNG (RGBA/P) to RGB for JPEG output
-    2. Downscale dimensions by 10% iteratively until quality-95 JPEG fits,
-       stopping at MIN_DIMENSION (1600px)
-    3. If still over budget, binary search quality 95→50 at current dimensions
+    2. Binary search dimensions (original → MIN_DIMENSION) to find the
+       largest size where quality-95 JPEG fits under max_size
+    3. If MIN_DIMENSION at quality 95 is still over budget, binary search
+       quality 95→50 at MIN_DIMENSION
 
     Args:
         image_path: Path to source image.
@@ -76,37 +96,38 @@ def resize_image_to_target(image_path: Path, max_size: int = MAX_IMAGE_SIZE) -> 
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
 
-    current_img = img
+    # Try full size at quality 95 first
+    data = _save_jpeg(img, 95)
+    if len(data) <= max_size:
+        return data
 
-    # Phase 1: Downscale dimensions until quality-95 JPEG fits under max_size
-    while True:
-        buffer = io.BytesIO()
-        current_img.save(buffer, format="JPEG", quality=95)
-        data = buffer.getvalue()
-
-        if len(data) <= max_size:
-            return data
-
-        # Reduce dimensions by 10%
-        width, height = current_img.size
-        new_width = int(width * 0.9)
-        new_height = int(height * 0.9)
-
-        # Stop downscaling at MIN_DIMENSION
-        if new_width < MIN_DIMENSION or new_height < MIN_DIMENSION:
-            break
-
-        current_img = current_img.resize((new_width, new_height), Image.LANCZOS)
-
-    # Phase 2: Binary search JPEG quality 95→50 at current dimensions
-    low, high = 50, 95
+    # Phase 1: Binary search dimensions to find largest that fits at quality 95
+    min_dim = min(img.size)
+    low, high = MIN_DIMENSION, min_dim
     best_data = None
 
     while low <= high:
         mid = (low + high) // 2
-        buffer = io.BytesIO()
-        current_img.save(buffer, format="JPEG", quality=mid)
-        data = buffer.getvalue()
+        resized = _resize_to(img, mid)
+        data = _save_jpeg(resized, 95)
+
+        if len(data) <= max_size:
+            best_data = data
+            low = mid + 1  # Try larger
+        else:
+            high = mid - 1  # Try smaller
+
+    if best_data is not None:
+        return best_data
+
+    # Phase 2: MIN_DIMENSION at quality 95 still too large — binary search quality
+    current_img = _resize_to(img, MIN_DIMENSION)
+    low, high = 50, 94
+    best_data = None
+
+    while low <= high:
+        mid = (low + high) // 2
+        data = _save_jpeg(current_img, mid)
 
         if len(data) <= max_size:
             best_data = data
@@ -117,18 +138,8 @@ def resize_image_to_target(image_path: Path, max_size: int = MAX_IMAGE_SIZE) -> 
     if best_data is not None:
         return best_data
 
-    # Even quality 50 at MIN_DIMENSION is too large — force minimum and return
-    width, height = current_img.size
-    if width > height:
-        new_width = MIN_DIMENSION
-        new_height = int(height * (MIN_DIMENSION / width))
-    else:
-        new_height = MIN_DIMENSION
-        new_width = int(width * (MIN_DIMENSION / height))
-    current_img = current_img.resize((new_width, new_height), Image.LANCZOS)
-    buffer = io.BytesIO()
-    current_img.save(buffer, format="JPEG", quality=50)
-    return buffer.getvalue()
+    # Even quality 50 at MIN_DIMENSION — return whatever we get
+    return _save_jpeg(current_img, 50)
 
 
 def get_image_data(image_path: Path, max_size: int = MAX_IMAGE_SIZE) -> tuple[bytes, str]:
