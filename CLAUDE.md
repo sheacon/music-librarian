@@ -50,7 +50,7 @@ music-librarian convert <path>          # Convert to AAC
 - **normalize.py** - Wraps rsgain for ReplayGain tagging (track + album level), skips if already tagged
 - **convert.py** - FFmpeg wrapper for FLAC→AAC conversion using macOS AudioToolbox
 - **artwork.py** - Cover image embedding with automatic resizing (max 2MB)
-- **lyrics.py** - Fetches from LRCLIB (primary) and Genius (fallback); skips tracks that already have lyrics
+- **lyrics.py** - Fetches from LRCLIB (primary) and Genius (fallback); skips tracks that already have lyrics; summary-only output (no per-track progress)
 - **lastfm.py** - Genre lookup via Last.fm API for post-processing
 - **ignore.py** - Manages ignore lists for artists/albums (persisted to ~/.config/music-librarian/ignore.json)
 - **transfer.py** - Handles rsync transfers and file moves for staging/shelving workflow
