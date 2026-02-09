@@ -194,7 +194,7 @@ Post-processing includes:
 - Artwork fetching from Qobuz (standard edition cover art)
 - Metadata normalization (artist, album/track titles, edition markers)
 - Genre lookup from Last.fm
-- Lyrics fetching from LRCLIB and Genius (skips tracks that already have lyrics)
+- Lyrics fetching from LRCLIB and Genius (skips tracks that already have lyrics; summary-only output)
 - Artwork embedding (with automatic resizing if needed)
 - ReplayGain normalization (track and album level; skips if already tagged)
 
