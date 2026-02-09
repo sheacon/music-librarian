@@ -41,25 +41,25 @@ music-librarian convert <path>          # Convert to AAC
 ### Module Structure (`src/music_librarian/`)
 
 - **cli.py** - Typer-based CLI entry point, defines all commands
-- **qobuz.py** - Core Qobuz integration: API calls, album deduplication, download orchestration, post-processing pipeline
+- **qobuz.py** - Core Qobuz integration: API calls, album deduplication, download orchestration, post-processing pipeline, artwork fetching from Qobuz standard editions
 - **library.py** - Local library scanning, parses folder structure `[Letter]/[Artist]/[Year] Album Title/`, fuzzy artist matching
 - **config.py** - Default paths and environment variable handling (LASTFM_API_KEY, GENIUS_API_KEY)
 
 ### Supporting Modules
 
-- **normalize.py** - Wraps rsgain for ReplayGain tagging
+- **normalize.py** - Wraps rsgain for ReplayGain tagging (track + album level), skips if already tagged
 - **convert.py** - FFmpeg wrapper for FLAC→AAC conversion using macOS AudioToolbox
 - **artwork.py** - Cover image embedding with automatic resizing (max 2MB)
-- **lyrics.py** - Fetches from LRCLIB (primary) and Genius (fallback)
+- **lyrics.py** - Fetches from LRCLIB (primary) and Genius (fallback); skips tracks that already have lyrics
 - **lastfm.py** - Genre lookup via Last.fm API for post-processing
 - **ignore.py** - Manages ignore lists for artists/albums (persisted to ~/.config/music-librarian/ignore.json)
 - **transfer.py** - Handles rsync transfers and file moves for staging/shelving workflow
 
 ### Key Data Flow
 
-1. **Discovery**: `library.scan_library()` → `qobuz.search_artist()` → `qobuz.get_artist_albums()` → `qobuz._deduplicate_albums()`
-2. **Download**: `qobuz.download_album()` calls qobuz-dl subprocess, then `qobuz.process_album()` for post-processing
-3. **Post-processing** (`process_album`): metadata normalization → genre lookup → lyrics fetch → artwork embed → ReplayGain
+1. **Discovery**: `library.scan_library()` → `qobuz.search_artist()` → `qobuz.get_artist_albums()` (`_fetch_artist_albums_raw()` + `_deduplicate_albums()`)
+2. **Download**: `qobuz.download_album()` calls qobuz-dl subprocess, then `qobuz.process_album(fetch_artwork=False)` for post-processing
+3. **Post-processing** (`process_album`): Qobuz artwork fetch → metadata normalization → genre lookup → lyrics fetch → artwork embed → ReplayGain
 4. **Graduation**: `stage` (Downloads → [New] via rsync) → `shelve` ([New] → library via move)
 
 ### Album Deduplication Logic (`qobuz._deduplicate_albums`)

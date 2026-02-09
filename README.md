@@ -14,7 +14,7 @@ A CLI tool to manage a high-fidelity music library with Qobuz integration. Disco
   - Uses the original release year (not reissue year)
   - Downloads hi-fi deluxe editions but removes bonus tracks to match standard track listing
 - **Downloading** - Download albums from Qobuz using qobuz-dl
-- **Post-processing** - Normalize metadata, fetch genres/lyrics, embed artwork, apply ReplayGain
+- **Post-processing** - Fetch artwork from Qobuz, normalize metadata, fetch genres/lyrics, embed artwork, apply ReplayGain
 - **Bulk processing** - Process existing albums in bulk at any directory level
 - **Volume normalization** - Apply ReplayGain tags using rsgain
 - **Format conversion** - Create AAC 256kbps versions for portable devices
@@ -167,7 +167,7 @@ Download an album from Qobuz using the album ID (shown by `discover`):
 music-librarian download 0075597947786
 ```
 
-The download command automatically applies post-processing: metadata normalization, genre lookup, lyrics fetching, artwork embedding, and ReplayGain.
+The download command automatically applies post-processing: artwork fetching, metadata normalization, genre lookup, lyrics fetching, artwork embedding, and ReplayGain.
 
 ### Process Existing Albums
 
@@ -191,11 +191,12 @@ music-librarian process --dry-run "/Volumes/music/Alphabetical"
 ```
 
 Post-processing includes:
+- Artwork fetching from Qobuz (standard edition cover art)
 - Metadata normalization (artist, album/track titles, edition markers)
 - Genre lookup from Last.fm
-- Lyrics fetching from LRCLIB and Genius
+- Lyrics fetching from LRCLIB and Genius (skips tracks that already have lyrics)
 - Artwork embedding (with automatic resizing if needed)
-- ReplayGain normalization
+- ReplayGain normalization (track and album level; skips if already tagged)
 
 ### Normalize Volume
 
