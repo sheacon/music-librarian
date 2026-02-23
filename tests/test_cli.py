@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from music_librarian.cli import app, find_album_directories, _parse_interactive_input, _parse_transfer_input
+from music_librarian.cli import app, find_album_directories, _parse_album_id, _parse_interactive_input, _parse_transfer_input
 
 runner = CliRunner()
 
@@ -618,3 +618,45 @@ class TestParseTransferInput:
     def test_whitespace(self):
         result = _parse_transfer_input("  2s  ", 5)
         assert result == (2, "s")
+
+
+# --- _parse_album_id ---
+
+
+class TestParseAlbumId:
+    def test_plain_id(self):
+        assert _parse_album_id("crhnhayeurwzw") == "crhnhayeurwzw"
+
+    def test_open_qobuz_url(self):
+        assert _parse_album_id("https://open.qobuz.com/album/crhnhayeurwzw") == "crhnhayeurwzw"
+
+    def test_www_qobuz_url(self):
+        assert _parse_album_id("https://www.qobuz.com/us-en/album/some-title/crhnhayeurwzw") == "crhnhayeurwzw"
+
+    def test_http_url(self):
+        assert _parse_album_id("http://open.qobuz.com/album/abc123") == "abc123"
+
+    def test_numeric_id(self):
+        assert _parse_album_id("1234567890") == "1234567890"
+
+
+# --- download command ---
+
+
+class TestDownloadCommand:
+    def test_download_accepts_url(self):
+        """Passing a full URL should extract the album ID, not double-wrap it."""
+        with patch("music_librarian.cli.download_album") as mock_dl:
+            mock_dl.return_value = (True, Path("/tmp/test"))
+            result = runner.invoke(
+                app, ["download", "https://open.qobuz.com/album/crhnhayeurwzw"]
+            )
+            # Should call with the correct URL, not a double-wrapped one
+            mock_dl.assert_called_once_with("https://open.qobuz.com/album/crhnhayeurwzw")
+
+    def test_download_accepts_plain_id(self):
+        """Passing a plain album ID should construct the URL."""
+        with patch("music_librarian.cli.download_album") as mock_dl:
+            mock_dl.return_value = (True, Path("/tmp/test"))
+            result = runner.invoke(app, ["download", "crhnhayeurwzw"])
+            mock_dl.assert_called_once_with("https://open.qobuz.com/album/crhnhayeurwzw")

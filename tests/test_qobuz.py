@@ -16,6 +16,7 @@ from music_librarian.qobuz import (
     _normalize_track_title,
     _strip_edition_markers,
     _to_org_url,
+    download_album,
     fetch_qobuz_artwork,
     find_standard_edition_id,
     get_qobuz_credentials,
@@ -654,3 +655,54 @@ class TestFetchQobuzArtwork:
 
         result = fetch_qobuz_artwork(tmp_path)
         assert result is False
+
+
+# --- download_album ---
+
+
+class TestDownloadAlbum:
+    @patch("music_librarian.qobuz.process_album")
+    @patch("music_librarian.qobuz.subprocess.run")
+    def test_no_new_folder_returns_failure(self, mock_run, mock_process, tmp_path):
+        """If qobuz-dl doesn't create a new folder, return failure and don't process."""
+        mock_run.return_value = MagicMock(returncode=0)
+
+        # Pre-existing folder (simulates a previously downloaded album)
+        old_album = tmp_path / "Old Artist - [2020] Old Album"
+        old_album.mkdir()
+        (old_album / "01 - Track.flac").touch()
+
+        with patch("music_librarian.qobuz.DOWNLOADS_PATH", tmp_path):
+            success, path = download_album("https://open.qobuz.com/album/abc123")
+
+        assert success is False
+        assert path is None
+        mock_process.assert_not_called()
+
+    @patch("music_librarian.qobuz.process_album")
+    @patch("music_librarian.qobuz.FLAC")
+    @patch("music_librarian.qobuz.subprocess.run")
+    def test_new_folder_gets_processed(self, mock_run, mock_flac, mock_process, tmp_path):
+        """A newly created folder should be detected and processed."""
+        def create_folder(*args, **kwargs):
+            new_album = tmp_path / "Artist - [2024] New Album"
+            new_album.mkdir()
+            (new_album / "01 - Track.flac").touch()
+            return MagicMock(returncode=0)
+
+        mock_run.side_effect = create_folder
+        mock_audio = MagicMock()
+        mock_audio.get.return_value = [""]
+        mock_flac.return_value = mock_audio
+
+        # Pre-existing folder
+        old_album = tmp_path / "Old Artist - [2020] Old Album"
+        old_album.mkdir()
+
+        with patch("music_librarian.qobuz.DOWNLOADS_PATH", tmp_path):
+            success, path = download_album("https://open.qobuz.com/album/abc123")
+
+        assert success is True
+        assert path is not None
+        assert "New Album" in path.name
+        mock_process.assert_called_once()

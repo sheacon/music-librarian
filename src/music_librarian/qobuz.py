@@ -1120,6 +1120,9 @@ def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path
     """
     output_dir = DOWNLOADS_PATH
 
+    # Record existing folders before download
+    existing_folders = set(output_dir.iterdir()) if output_dir.exists() else set()
+
     cmd = [
         "qobuz-dl",
         "dl",
@@ -1133,11 +1136,12 @@ def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path
     if result.returncode != 0:
         return False, None
 
-    # Find the most recently modified folder
-    folders = [f for f in output_dir.iterdir() if f.is_dir()]
-    if not folders:
-        return True, None
-    album_path = max(folders, key=lambda f: f.stat().st_mtime)
+    # Find newly created folder (not present before download)
+    current_folders = set(output_dir.iterdir()) if output_dir.exists() else set()
+    new_folders = [f for f in current_folders - existing_folders if f.is_dir()]
+    if not new_folders:
+        return False, None
+    album_path = max(new_folders, key=lambda f: f.stat().st_mtime)
 
     # Rename folder to strip edition markers
     flac_files = sorted(album_path.glob("*.flac"))

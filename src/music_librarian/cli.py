@@ -380,11 +380,35 @@ def discover(
             console.print(f"  [red]Error: {e}[/red]")
 
 
+def _parse_album_id(album_id: str) -> str:
+    """Extract album ID from a Qobuz URL or return as-is if already an ID.
+
+    Supports:
+    - https://open.qobuz.com/album/abc123
+    - https://www.qobuz.com/album/title/abc123
+    - abc123 (plain ID)
+    """
+    import re
+
+    # Match open.qobuz.com/album/{id}
+    match = re.match(r"https?://open\.qobuz\.com/album/([^/?#]+)", album_id)
+    if match:
+        return match.group(1)
+
+    # Match www.qobuz.com/album/.../{id}
+    match = re.match(r"https?://(?:www\.)?qobuz\.com/.+/([^/?#]+)$", album_id)
+    if match:
+        return match.group(1)
+
+    return album_id
+
+
 @app.command()
 def download(
-    album_id: Annotated[str, typer.Argument(help="Qobuz album ID")],
+    album_id: Annotated[str, typer.Argument(help="Qobuz album ID or URL")],
 ) -> None:
     """Download an album from Qobuz."""
+    album_id = _parse_album_id(album_id)
     url = f"https://open.qobuz.com/album/{album_id}"
     console.print(f"[cyan]Downloading: {album_id}[/cyan]")
 
