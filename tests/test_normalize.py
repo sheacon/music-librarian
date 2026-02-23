@@ -34,12 +34,12 @@ class TestNormalizeAlbum:
         mock_run.return_value = MagicMock(
             returncode=0,
             stdout=(
-                "Track 1:\n"
+                "Track: /path/to/album/01 Song One.flac\n"
                 "  Loudness:   -14.50 LUFS\n"
                 "  Peak:     0.950000 (-0.45 dB)\n"
                 "  Gain:       3.50 dB\n"
                 "\n"
-                "Track 2:\n"
+                "Track: /path/to/album/02 Song Two.flac\n"
                 "  Loudness:   -13.80 LUFS\n"
                 "  Peak:     0.920000 (-0.72 dB)\n"
                 "  Gain:       4.20 dB\n"

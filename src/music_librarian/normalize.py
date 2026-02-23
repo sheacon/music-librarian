@@ -57,7 +57,7 @@ def normalize_album(album_path: Path) -> dict | None:
 
     # Count track-level gains
     track_matches = re.findall(
-        r"Track\s+\d+:\s*\n"
+        r"Track:\s*.+\n"
         r"\s*Loudness:\s*[-\d.]+\s*LUFS\s*\n"
         r"\s*Peak:\s*[-\d.]+\s*\([-\d.]+\s*dB\)\s*\n"
         r"\s*Gain:\s*[-\d.]+\s*dB",
