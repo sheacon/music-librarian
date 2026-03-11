@@ -10,6 +10,7 @@ from music_librarian.qobuz import (
     QobuzAlbum,
     _deduplicate_albums,
     _extract_edition_markers,
+    _flatten_nested_album,
     _is_clean_version,
     _is_compilation_or_live,
     _normalize_album_title,
@@ -657,6 +658,54 @@ class TestFetchQobuzArtwork:
         assert result is False
 
 
+# --- _flatten_nested_album ---
+
+
+class TestFlattenNestedAlbum:
+    def test_noop_when_flacs_at_top_level(self, tmp_path):
+        (tmp_path / "01 Track.flac").touch()
+        (tmp_path / "cover.jpg").touch()
+        assert _flatten_nested_album(tmp_path) is False
+
+    def test_flattens_single_nested_subfolder(self, tmp_path):
+        nested = tmp_path / "Artist Name"
+        nested.mkdir()
+        (nested / "01 Track.flac").touch()
+        (nested / "02 Track.flac").touch()
+        (nested / "cover.jpg").touch()
+
+        assert _flatten_nested_album(tmp_path) is True
+        # Files should now be at top level
+        assert (tmp_path / "01 Track.flac").exists()
+        assert (tmp_path / "02 Track.flac").exists()
+        assert (tmp_path / "cover.jpg").exists()
+        # Nested folder should be removed
+        assert not nested.exists()
+
+    def test_noop_when_multiple_subfolders_have_flacs(self, tmp_path):
+        disc1 = tmp_path / "Disc 1"
+        disc1.mkdir()
+        (disc1 / "01 Track.flac").touch()
+        disc2 = tmp_path / "Disc 2"
+        disc2.mkdir()
+        (disc2 / "01 Track.flac").touch()
+
+        assert _flatten_nested_album(tmp_path) is False
+        # Files should remain in subfolders
+        assert (disc1 / "01 Track.flac").exists()
+        assert (disc2 / "01 Track.flac").exists()
+
+    def test_noop_when_empty_directory(self, tmp_path):
+        assert _flatten_nested_album(tmp_path) is False
+
+    def test_noop_when_subfolder_has_no_flacs(self, tmp_path):
+        nested = tmp_path / "Subfolder"
+        nested.mkdir()
+        (nested / "cover.jpg").touch()
+
+        assert _flatten_nested_album(tmp_path) is False
+
+
 # --- download_album ---
 
 
@@ -706,3 +755,32 @@ class TestDownloadAlbum:
         assert path is not None
         assert "New Album" in path.name
         mock_process.assert_called_once()
+
+    @patch("music_librarian.qobuz.process_album")
+    @patch("music_librarian.qobuz.FLAC")
+    @patch("music_librarian.qobuz.subprocess.run")
+    def test_flattens_nested_qobuz_output(self, mock_run, mock_flac, mock_process, tmp_path):
+        """download_album flattens nested artist subfolder before processing."""
+        def create_nested_folder(*args, **kwargs):
+            album_dir = tmp_path / "Artist - [2024] Album"
+            album_dir.mkdir()
+            nested = album_dir / "Artist"
+            nested.mkdir()
+            (nested / "01 Track.flac").touch()
+            (nested / "cover.jpg").touch()
+            return MagicMock(returncode=0)
+
+        mock_run.side_effect = create_nested_folder
+        mock_audio = MagicMock()
+        mock_audio.get.return_value = [""]
+        mock_flac.return_value = mock_audio
+
+        with patch("music_librarian.qobuz.DOWNLOADS_PATH", tmp_path):
+            success, path = download_album("https://open.qobuz.com/album/abc123")
+
+        assert success is True
+        # FLAC should be at top level after flattening
+        assert (path / "01 Track.flac").exists()
+        assert (path / "cover.jpg").exists()
+        # Nested subfolder should be gone
+        assert not (path / "Artist").exists()

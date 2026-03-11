@@ -3,6 +3,7 @@
 import configparser
 import hashlib
 import re
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -1104,6 +1105,42 @@ def process_album(album_path: Path, fetch_artwork: bool = True) -> None:
             print("failed")
 
 
+def _flatten_nested_album(album_path: Path) -> bool:
+    """Flatten a nested artist subfolder created by qobuz-dl.
+
+    qobuz-dl sometimes creates an extra artist subfolder inside the formatted
+    album folder, e.g.:
+        Artist - [2024] Album/
+            Artist/
+                01 Track.flac
+                cover.jpg
+
+    This moves all files from the single nested subfolder up to album_path
+    and removes the empty subfolder.
+
+    Returns True if flattening was performed, False otherwise.
+    """
+    # If FLACs already exist at top level, nothing to do
+    if list(album_path.glob("*.flac")):
+        return False
+
+    # Find subfolders that contain FLAC files
+    subfolders_with_flacs = [
+        d for d in album_path.iterdir()
+        if d.is_dir() and list(d.glob("*.flac"))
+    ]
+
+    # Only flatten when exactly one subfolder has FLACs
+    if len(subfolders_with_flacs) != 1:
+        return False
+
+    nested = subfolders_with_flacs[0]
+    for item in nested.iterdir():
+        shutil.move(str(item), str(album_path / item.name))
+    nested.rmdir()
+    return True
+
+
 def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path | None]:
     """Download an album using qobuz-dl.
 
@@ -1142,6 +1179,9 @@ def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path
     if not new_folders:
         return False, None
     album_path = max(new_folders, key=lambda f: f.stat().st_mtime)
+
+    # Flatten nested artist subfolder if qobuz-dl created one
+    _flatten_nested_album(album_path)
 
     # Rename folder to strip edition markers
     flac_files = sorted(album_path.glob("*.flac"))
