@@ -1194,7 +1194,10 @@ def download_album(url: str, standard_id: str | None = None) -> tuple[bool, Path
         clean_title = _strip_edition_markers(album_title)
 
         if clean_title and year:
-            clean_name = f"{album_artist} - [{year}] {clean_title}"
+            # Sanitize path separators from metadata (e.g. "Album/Artist" tags)
+            safe_artist = album_artist.replace("/", "-")
+            safe_title = clean_title.replace("/", "-")
+            clean_name = f"{safe_artist} - [{year}] {safe_title}"
             if album_path.name != clean_name:
                 new_path = album_path.parent / clean_name
                 if not new_path.exists():

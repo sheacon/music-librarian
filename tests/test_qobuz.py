@@ -784,3 +784,30 @@ class TestDownloadAlbum:
         assert (path / "cover.jpg").exists()
         # Nested subfolder should be gone
         assert not (path / "Artist").exists()
+
+    @patch("music_librarian.qobuz.process_album")
+    @patch("music_librarian.qobuz.FLAC")
+    @patch("music_librarian.qobuz.subprocess.run")
+    def test_rename_sanitizes_slash_in_metadata(self, mock_run, mock_flac, mock_process, tmp_path):
+        """Slash in FLAC metadata should not create nested path during rename."""
+        def create_folder(*args, **kwargs):
+            album_dir = tmp_path / "Artist - [2024] Album"
+            album_dir.mkdir()
+            (album_dir / "01 Track.flac").touch()
+            return MagicMock(returncode=0)
+
+        mock_run.side_effect = create_folder
+        mock_audio = MagicMock()
+        mock_audio.get.side_effect = lambda key, default=None: {
+            "album": ["Album/Artist"],
+            "albumartist": ["Artist"],
+            "date": ["2024"],
+        }.get(key, default)
+        mock_flac.return_value = mock_audio
+
+        with patch("music_librarian.qobuz.DOWNLOADS_PATH", tmp_path):
+            success, path = download_album("https://open.qobuz.com/album/abc123")
+
+        assert success is True
+        assert "/" not in path.name
+        assert path.name == "Artist - [2024] Album-Artist"
