@@ -21,3 +21,17 @@ test('fails if the API repeats an entire page', async () => {
 test('fails rather than treating missing results as an empty library', async () => {
   await assert.rejects(pages(async () => ({albums:{total:1,items:[]}}),'x','albums',{}), /Incomplete/);
 });
+
+test('classifies candidates and older matching editions only', async () => {
+  const {classifyCandidates} = await import('./collect.mjs');
+  const items = [
+    {id:'new',title:'Work',artist:{id:1},release_date_original:'2026-09-25'},
+    {id:'old',title:'Work (Deluxe)',artist:{id:1},release_date_original:'2020-01-01'},
+    {id:'other',title:'Other',artist:{id:1},release_date_original:'2020-01-01'}
+  ];
+  const calls=[];
+  await classifyCandidates(async (_,p)=>{calls.push(p.album_id);return {id:p.album_id,release_type:p.album_id==='old'?'single':'album'};},items,'2026-09-23','2026-09-30');
+  assert.deepEqual(calls.sort(),['new','old']);
+  assert.equal(items[0].release_type,'album');
+  assert.equal(items[1].release_type,'single');
+});

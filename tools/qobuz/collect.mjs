@@ -26,10 +26,32 @@ export async function pages(get, endpoint, key, params) {
     }
   }
 
+export function workKey(album) {
+  const title = album.title.replace(/\s*[\[(][^\])]*(?:deluxe|remaster|expanded|anniversary|edition)[^\])]*[\])]/gi, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return String(album.artist?.id ?? '') + '|' + title;
+}
+
+export async function classifyCandidates(get, albums, since, through) {
+  const keys = new Set(albums.filter(a => a.release_date_original >= since && a.release_date_original <= through).map(workKey));
+  const pending = albums.filter(a => keys.has(workKey(a)));
+  async function worker() {
+    while (pending.length) {
+      const album = pending.shift();
+      const details = await get('album/get', {album_id:album.id});
+      if (String(details.id) !== String(album.id)) throw new Error('Release metadata ID mismatch');
+      Object.assign(album, details);
+    }
+  }
+  await Promise.all([worker(), worker(), worker()]);
+}
+
 async function main() {
   const outputIndex = process.argv.indexOf('--output');
   if (outputIndex < 0 || !process.argv[outputIndex + 1]) throw new Error('Use --output <snapshot.json>');
   const output = process.argv[outputIndex + 1];
+  const since = process.argv[process.argv.indexOf('--since') + 1];
+  const through = process.argv[process.argv.indexOf('--through') + 1];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since ?? '') || !/^\d{4}-\d{2}-\d{2}$/.test(through ?? '')) throw new Error('Provide --since and --through dates');
   const auth = JSON.parse(await readFile(`${homedir()}/.config/music-librarian/qobuz-auth.json`, 'utf8'));
   const client = createTransport({appId: auth.app_id, token: auth.token,
     fetchImpl: (url, options) => fetch(url, {...options, signal: AbortSignal.timeout(45000)})});
@@ -83,6 +105,7 @@ async function main() {
     }
   }
   await Promise.all([worker(), worker(), worker()]);
+  await classifyCandidates(get, [...albums.values()], since, through);
   await mkdir(dirname(output), {recursive:true});
   const temp = `${output}.${process.pid}.tmp`;
   await writeFile(temp, JSON.stringify({collected_at:new Date().toISOString(), counts, artists:Object.fromEntries(artists), albums:[...albums.values()]}), {mode:0o600});

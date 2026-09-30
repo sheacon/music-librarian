@@ -26,10 +26,16 @@ def release_key(album):
     return artist + '|' + title
 
 
+def is_full_album(album):
+    return str(album.get('release_type') or album.get('product_type') or '').lower() == 'album'
+
+
 def select_releases(albums, since, today, delivered):
     groups = {}
     earliest = {}
     for album in albums:
+        if not is_full_album(album):
+            continue
         try:
             date = dt.date.fromisoformat(album.get('release_date_original', ''))
         except (ValueError, TypeError):
@@ -37,7 +43,7 @@ def select_releases(albums, since, today, delivered):
         key = release_key(album)
         earliest[key] = min(earliest.get(key, date), date)
     for album in albums:
-        if album.get('streamable') is False:
+        if not is_full_album(album) or album.get('streamable') is False:
             continue
         raw_date = album.get('release_date_original', '')
         try:
@@ -65,7 +71,7 @@ def render(releases, artist_count, since, today):
         lines.extend([f"{artist} — {album['title']}",
                       f"{album['release_date_original']} · {kind}",
                       f"https://play.qobuz.com/album/{album['id']}", ''])
-    lines += ['', 'Includes albums, EPs, singles, and new live releases. Dates and artist credits come from Qobuz. Earlier matching editions are excluded; incorrect catalog credits or dates may still appear.']
+    lines += ['', 'Full albums only; singles, EPs, and releases without an album classification are excluded. Dates and artist credits come from Qobuz. Earlier matching editions are excluded; incorrect catalog credits or dates may still appear.']
     return '\n'.join(lines)
 
 
@@ -127,7 +133,7 @@ def run(state_dir=STATE, preview=False):
             since = dt.date.fromisoformat(state['through']) - dt.timedelta(days=7) if state['through'] else today - dt.timedelta(days=7)
             collector = Path(__file__).resolve().parents[2] / 'tools/qobuz/collect.mjs'
             snapshot_path = state_dir / 'catalog.json'
-            subprocess.run(['node', str(collector), '--output', str(snapshot_path)], check=True, timeout=1800)
+            subprocess.run(['node', str(collector), '--output', str(snapshot_path), '--since', str(since), '--through', str(today)], check=True, timeout=1800)
             snapshot = json.loads(snapshot_path.read_text())
             artists, albums = snapshot['artists'], snapshot['albums']
             releases = select_releases(albums, since, today, set(state['delivered']))

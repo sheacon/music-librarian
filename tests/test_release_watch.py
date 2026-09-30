@@ -11,16 +11,16 @@ from music_librarian.qobuz_auth import atomic_json
 
 def album(id='1', title='New record', date='2026-09-25', **kwargs):
     return dict(id=id, title=title, release_date_original=date,
-                artist={'id': 42, 'name': 'Artist'}, **kwargs)
+                artist={'id': 42, 'name': 'Artist'}, **({'release_type':'album'} | kwargs))
 
 
-def test_releases_include_singles_and_live_exclude_future_old_unavailable():
+def test_releases_include_full_live_albums_exclude_singles_future_old_unavailable():
     items = [album(), album('2', 'New single', release_type='single'),
              album('3', 'Live in Richmond'), album('4', 'Future record', date='2026-10-02'),
              album('5', 'Old record', date='1999-01-01'), album('6', date=None),
              album('7', streamable=False)]
     found = watch.select_releases(items, dt.date(2026, 9, 23), dt.date(2026, 9, 30), set())
-    assert {a['id'] for a in found} == {'1', '2', '3'}
+    assert {a['id'] for a in found} == {'1', '3'}
 
 
 def test_best_fidelity_edition_once_and_delivered_not_repeated():
@@ -78,3 +78,14 @@ def test_auth_file_permissions(tmp_path):
 def test_reissue_incorrectly_dated_new_is_excluded_when_older_edition_exists():
     items = [album(date='1996-09-23'), album('2', 'New record (Deluxe Edition)', date='2026-09-25')]
     assert not watch.select_releases(items, dt.date(2026,9,23), dt.date(2026,9,30), set())
+
+
+def test_classification_overrules_track_count_and_unknown_is_excluded():
+    items = [album(tracks_count=3), album('2', 'Long EP', release_type='ep', tracks_count=10),
+             album('3', 'Unknown', release_type=None, tracks_count=12)]
+    assert [a['id'] for a in watch.select_releases(items, dt.date(2026,9,23), dt.date(2026,9,30), set())] == ['1']
+
+
+def test_earlier_single_does_not_suppress_same_named_album():
+    items = [album('single',date='2026-08-01',release_type='single'), album()]
+    assert [a['id'] for a in watch.select_releases(items,dt.date(2026,9,23),dt.date(2026,9,30),set())] == ['1']
