@@ -37,3 +37,6 @@ Thumbs.db
 
 # Environment
 .env
+
+# Qobuz CLI dependency runtime
+node_modules/

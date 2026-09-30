@@ -413,3 +413,64 @@ music-librarian ignore list
 ## License
 
 MIT
+
+## Weekly Qobuz release digest
+
+The release watcher reads the **Qobuz account library**, independently of the NAS
+scanner. It covers artists credited on favorite albums/tracks, followed artists,
+and purchases, including collaborative and featured credits. It refreshes that list
+on each run and emails new albums, EPs, singles, and live releases with Qobuz links.
+Original release dates keep old catalog reissues out; duplicate editions select the
+highest listed fidelity. Nothing is downloaded or changed in the account.
+
+Qobuz access uses the maintained **`@kud/qobuz` 0.5.5 client**, installed with
+**`@kud/qobuz-cli` 1.0.0**, pinned in `tools/qobuz/package-lock.json`. The stock CLI
+has no release-alert command and its favorites command only reads its first page;
+`collect.mjs` adds complete pagination and collection for the email runner.
+
+```bash
+# Node >=20 and Python >=3.10; no Python dependencies needed for the watcher.
+cd tools/qobuz && npm ci --ignore-scripts
+cd ../..
+export PYTHONPATH="$PWD/src"
+
+# Connect through Qobuz's browser OAuth; open the printed URL and sign in.
+python3 -m music_librarian.qobuz_auth
+
+# Preview: no email and no delivery checkpoint advancement.
+python3 -m music_librarian.release_watch --preview
+
+# Collect and deliver one weekly email, including a no-new-releases result.
+python3 -m music_librarian.release_watch
+
+# Optional interactive metadata CLI (has its own Keychain login).
+node tools/qobuz/node_modules/@kud/qobuz-cli/dist/index.js --help
+```
+
+The OAuth token is stored only in `~/.config/music-librarian/qobuz-auth.json` with
+mode 0600. The helper reuses the app ID from the existing qobuz-dl configuration.
+**The old qobuz-dl email/password login endpoint is no longer usable; resetting its
+config is not a fix for authentication failures.** The watcher does not alter the
+existing downloading commands.
+
+State, catalog snapshots, previews, and delivery logs live outside git in
+`~/.local/state/qobuz-release-watch/`. The first run covers the prior seven days;
+later runs cover the last successful checkpoint with a seven-day overlap. Delivered
+release keys prevent repeat alerts. A failed/partial scan never advances the
+checkpoint. Pending emails have stable Message-IDs and are reconciled with Gmail,
+including Trash, after uncertain sends. Unresolved sends stop for manual inspection;
+never delete an attempted pending email until delivery has been resolved.
+
+Shea's installation uses Index's `scripts/gws-safe.sh` to send to
+`shea.conaway@gmail.com`. The Friday **09:00 America/New_York** launchd job,
+`com.index.qobuz-release-digest`, and failure-email wrapper live in
+`~/Repos/index/scripts/`. The Mac must be on and online; launchd catches a missed
+calendar trigger on wake. Reauthenticate with the OAuth command if a token expires.
+
+```bash
+pytest
+node --test tools/qobuz/collect.test.mjs
+```
+
+Authentication reference: [qobine's OAuth documentation](https://github.com/SofusA/qobine/blob/main/player-module/examples/qobuz-api.md).
+Maintained client: [kud/qobuz-cli](https://github.com/kud/qobuz-cli).
