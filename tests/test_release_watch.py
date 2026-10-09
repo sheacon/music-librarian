@@ -89,3 +89,22 @@ def test_classification_overrules_track_count_and_unknown_is_excluded():
 def test_earlier_single_does_not_suppress_same_named_album():
     items = [album('single',date='2026-08-01',release_type='single'), album()]
     assert [a['id'] for a in watch.select_releases(items,dt.date(2026,9,23),dt.date(2026,9,30),set())] == ['1']
+
+
+@pytest.mark.parametrize('genre', [
+    {'id': 10, 'name': 'Classical'},
+    {'id': 27, 'name': 'Chamber Music', 'path': [10, 27]},
+    {'id': 11, 'name': 'Symphonic Music', 'path': ['10', '11']},
+    {'name': 'Classical'},
+    {'slug': 'classique'},
+])
+def test_classical_and_subgenres_excluded_regardless_of_artist(genre):
+    items = [album('classical', genre=genre), album('rock', title='Rock record', genre={'id': 119, 'path': [112, 119]}),
+             album('jazz', title='Jazz record', genre={'id': 80, 'path': [80]}), album('unknown', title='Unknown genre record', genre=None)]
+    found = watch.select_releases(items, dt.date(2026, 9, 23), dt.date(2026, 9, 30), set())
+    assert {a['id'] for a in found} == {'rock', 'jazz', 'unknown'}
+
+
+def test_email_explains_classical_exclusion():
+    body = watch.render([], 1, dt.date(2026, 9, 23), dt.date(2026, 9, 30))
+    assert 'classical music (including its subgenres)' in body

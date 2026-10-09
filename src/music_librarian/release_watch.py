@@ -30,6 +30,15 @@ def is_full_album(album):
     return str(album.get('release_type') or album.get('product_type') or '').lower() == 'album'
 
 
+def is_classical(album):
+    """Qobuz genre 10 includes classical and its nested subgenres."""
+    genre = album.get('genre') or {}
+    return (str(genre.get('id')) == '10'
+            or any(str(parent) == '10' for parent in genre.get('path') or [])
+            or str(genre.get('name', '')).casefold() == 'classical'
+            or genre.get('slug') == 'classique')
+
+
 def select_releases(albums, since, today, delivered):
     groups = {}
     earliest = {}
@@ -43,7 +52,7 @@ def select_releases(albums, since, today, delivered):
         key = release_key(album)
         earliest[key] = min(earliest.get(key, date), date)
     for album in albums:
-        if not is_full_album(album) or album.get('streamable') is False:
+        if not is_full_album(album) or is_classical(album) or album.get('streamable') is False:
             continue
         raw_date = album.get('release_date_original', '')
         try:
@@ -71,7 +80,7 @@ def render(releases, artist_count, since, today):
         lines.extend([f"{artist} — {album['title']}",
                       f"{album['release_date_original']} · {kind}",
                       f"https://play.qobuz.com/album/{album['id']}", ''])
-    lines += ['', 'Full albums only; singles, EPs, and releases without an album classification are excluded. Dates and artist credits come from Qobuz. Earlier matching editions are excluded; incorrect catalog credits or dates may still appear.']
+    lines += ['', 'Full albums only; classical music (including its subgenres), singles, EPs, and releases without an album classification are excluded. Dates and artist credits come from Qobuz. Earlier matching editions are excluded; incorrect catalog credits or dates may still appear.']
     return '\n'.join(lines)
 
 

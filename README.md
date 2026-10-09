@@ -419,7 +419,9 @@ MIT
 The release watcher reads the **Qobuz account library**, independently of the NAS
 scanner. It covers artists credited on favorite albums/tracks, followed artists,
 and purchases, including collaborative and featured credits. It refreshes that list
-on each run and emails new full albums with Qobuz links. Singles and EPs are excluded using Qobuz’s explicit release classification, not track count; unclassified releases are omitted. Full live albums remain eligible.
+on each run and emails new full albums with Qobuz links. All classical albums,
+including contemporary classical and subgenres such as chamber and symphonic music,
+are excluded using Qobuz's genre hierarchy. Singles and EPs are excluded using Qobuz’s explicit release classification, not track count; unclassified releases are omitted. Full non-classical live albums remain eligible.
 Candidate releases and earlier matching editions are enriched through `album/get` to obtain their classification. Original release dates keep identifiable old catalog reissues out; duplicate editions select the
 highest listed fidelity. Nothing is downloaded or changed in the account.
 
