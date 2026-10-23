@@ -35,7 +35,9 @@ def fetched(**kwargs):
     (page(years='2000–present (on hiatus since 2018)'),'inactive'),
     (page(years='2000–2010 (hiatus), 2025–present'),'active'),
     (page(years='2000–present (hiatus 2012–2014)'),'active'),
-    (page(years='2000–2026'),'unknown'),
+    (page(years='2000–2026'),'inactive'),
+    (page(years='2000–2010, 2026'),'unknown'),
+    (page(years='2000–2027'),'unknown'),
     (page(years=''),'unknown'),
 ])
 def test_public_fields_classify_status(profile,expected):
@@ -159,3 +161,9 @@ def test_explicit_stage_alias_and_html_canonical_metadata():
     assert parser.canonical=='https://en.wikipedia.org/wiki/Legal_name'
     parser.feed('<link rel="canonical" href="https://example.org/">')
     assert parser.canonical=='https://en.wikipedia.org/wiki/Legal_name'
+
+
+def test_qobuz_capitalization_variants_are_resolved():
+    def get(url):
+        return fetched(name='Example (band)') if url.endswith('Example_%28band%29') else {'page':None}
+    assert status.assess_artist('EXAMPLE',NOW.date(),{},{},get)['status']=='active'

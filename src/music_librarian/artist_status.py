@@ -24,7 +24,7 @@ USER_AGENT = 'MusicLibrarian/0.1 (personal music metadata reader)'
 
 
 def normalized(name):
-    name = re.sub(r'\s*\((?:band|musician|rapper|singer|group|duo)\)$', '', name, flags=re.I)
+    name = re.sub(r'\s*\((?:band|musician|rapper|singer|group|duo|producer|composer|DJ)\)$', '', name, flags=re.I)
     name = unicodedata.normalize('NFKD', name.strip().casefold()).replace('&', 'and')
     return re.sub(r'[^a-z0-9]', '', re.sub(r'^the\s+', '', name))
 
@@ -167,7 +167,8 @@ def assess_page(page, name, today, pinned=False, redirected=False):
         historical = re.search(r'\d{4}\s*[–-]\s*\d{4}',tail)
         return {'status':'inactive' if hiatus and not historical else 'active', 'evidence':'Years active: '+years[:200]}
     dates = re.findall(r'\b(?:1[0-9]{3}|20[0-9]{2})\b',years)
-    if re.search(r'\bhiatus\b',years,re.I) or (dates and max(map(int,dates)) < today.year):
+    ended_this_year = bool(re.search(r'\b\d{4}\s*[–—-]\s*'+str(today.year)+r'\s*$',years))
+    if re.search(r'\bhiatus\b',years,re.I) or ended_this_year or (dates and max(map(int,dates)) < today.year):
         return {'status':'inactive', 'evidence':'Years active: '+years[:200]}
     return {'status':'unknown', 'evidence':'No unambiguous current activity field: '+years[:160]}
 
@@ -181,17 +182,25 @@ def assess_artist(name, today, prior, seed, get):
                 'evidence':record.get('evidence','Previously reviewed death record')}
     pinned = prior.get('source') or seed.get('source','')
     urls = [(pinned,True)] if pinned.startswith('https://en.wikipedia.org/wiki/') else []
-    for suffix in ('',' (band)',' (musician)',' (rapper)',' (singer)',' (group)'):
-        url = 'https://en.wikipedia.org/wiki/'+urllib.parse.quote((name.strip()+suffix).replace(' ','_'))
-        if all(url != previous for previous,_ in urls):
-            urls.append((url,False))
+    variants = [name.strip()]
+    if name.isupper():
+        variants.append(name.title())
+    connective = re.sub(r'(?<=\s)(Of|And|The|For|In|On|Under)(?=\s)',lambda m:m[0].lower(),name)
+    connective = re.sub(r'^Dj\s','DJ ',connective)
+    if connective not in variants:
+        variants.append(connective)
+    for variant in variants:
+        for suffix in ('',' (band)',' (musician)',' (rapper)',' (singer)',' (group)'):
+            url = 'https://en.wikipedia.org/wiki/'+urllib.parse.quote((variant+suffix).replace(' ','_'))
+            if all(url != previous for previous,_ in urls):
+                urls.append((url,False))
     for url,is_pinned in urls:
         reference = get(url)
         if not reference.get('page'):
             if is_pinned:
                 return {'status':'unknown', 'evidence':'Pinned reference page no longer exists'}
             continue
-        redirected = reference.get('canonical',url) != url
+        redirected = urllib.parse.unquote(reference.get('canonical',url)) != urllib.parse.unquote(url)
         result = assess_page(reference['page'],name,today,pinned=is_pinned,redirected=redirected)
         if result['status'] != 'unknown':
             if result['status'] == 'deceased' and seed.get('reason') == 'inactive':
@@ -213,9 +222,13 @@ def refresh(artists, cache_path, seeds, now=None, fetch=fetch_page):
     def get(url):
         nonlocal requested
         cached = pages.get(url,{})
-        if fresh(cached.get('checked_at'),now):
+        profile = cached.get('page') or {}
+        title = urllib.parse.unquote(url.rsplit('/',1)[-1]).replace('_',' ')
+        upgrade = (cached.get('parser_version',0) < 2 and profile.get('fields')
+                   and normalized(profile.get('heading','')) != normalized(title))
+        if fresh(cached.get('checked_at'),now) and not upgrade:
             return cached
-        record = dict(fetch(url,cached),checked_at=now.isoformat())
+        record = dict(fetch(url,{} if upgrade else cached),checked_at=now.isoformat(),parser_version=2)
         pages[url] = record
         requested += 1
         # Save completed public lookups for retry after a partial scan; the artist

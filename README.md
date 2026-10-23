@@ -442,7 +442,7 @@ times. `artist-pages.json` holds compact public infobox fields and HTTP validato
 not full articles. Both stay in `~/.local/state/qobuz-release-watch/` with mode
 0600; automated runs do not edit Git. Incomplete or ambiguous profiles retain the
 previous status; new unknown artists remain eligible. The digest reports unresolved
-counts. Wikipedia coverage, edit delays and ambiguous current-year activity ranges
+counts. Wikipedia coverage, edit delays and ambiguous single-year reunion entries
 limit assessments. A failed reference lookup aborts the scan, keeps the previous
 status set and delivery checkpoint, and uses the existing job failure alert.
 Completed public-page lookups are saved for retry. No new scheduler or notification
