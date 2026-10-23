@@ -14,13 +14,13 @@ def album(id='1', title='New record', date='2026-09-25', **kwargs):
                 artist={'id': 42, 'name': 'Artist'}, **({'release_type':'album'} | kwargs))
 
 
-def test_releases_include_full_live_albums_exclude_singles_future_old_unavailable():
+def test_releases_exclude_live_singles_future_old_unavailable():
     items = [album(), album('2', 'New single', release_type='single'),
              album('3', 'Live in Richmond'), album('4', 'Future record', date='2026-10-02'),
              album('5', 'Old record', date='1999-01-01'), album('6', date=None),
              album('7', streamable=False)]
     found = watch.select_releases(items, dt.date(2026, 9, 23), dt.date(2026, 9, 30), set())
-    assert {a['id'] for a in found} == {'1', '3'}
+    assert {a['id'] for a in found} == {'1'}
 
 
 def test_best_fidelity_edition_once_and_delivered_not_repeated():
@@ -108,3 +108,46 @@ def test_classical_and_subgenres_excluded_regardless_of_artist(genre):
 def test_email_explains_classical_exclusion():
     body = watch.render([], 1, dt.date(2026, 9, 23), dt.date(2026, 9, 30))
     assert 'classical music (including its subgenres)' in body
+
+
+@pytest.mark.parametrize('fields', [
+    {'release_tags': ['live']}, {'release_tags': ['compilation']},
+    {'release_tags': ['remaster']}, {'release_tags': ['reissue']},
+    {'version': 'Live'}, {'version': '2010 Remaster'},
+    {'title': 'Greatest Hits'}, {'title': 'The Best of Artist'},
+    {'title': 'New Record (25th Anniversary Edition)'},
+    {'title': 'New Record [Remastered]'}, {'is_compilation': True},
+    {'title': 'Live at the Hall'}, {'title': 'Hidden in Pieces: Live'},
+    {'title': 'New Record', 'recording_information': 'Live recording'},
+])
+def test_archival_release_markers_excluded(fields):
+    item = album()
+    item.update(fields)
+    assert not watch.select_releases([item], dt.date(2026,9,23), dt.date(2026,9,30), set())
+
+
+def test_artist_exclusion_uses_ids_and_main_credits_not_guests():
+    def credited(ident, **kwargs):
+        item = album(**kwargs)
+        item['artist'] = {'id': ident, 'name': 'Same name'}
+        return item
+    items = [credited(1, id='inactive'), credited(2, id='active'),
+             credited(2, id='guest', title='Guest album', artists=[{'id':1,'roles':['featured-artist']}]),
+             credited(2, id='collaboration', title='Joint album', artists=[{'id':1,'roles':['main-artist']}])]
+    found = watch.select_releases(items, dt.date(2026,9,23), dt.date(2026,9,30), set(), excluded={'1'})
+    assert {a['id'] for a in found} == {'active', 'guest'}
+
+
+def test_reviewed_exclusions_and_active_members_are_separate():
+    excluded = watch.excluded_artist_ids()
+    assert {'41736', '135918', '35028', '6760', '38326'} <= excluded
+    # Jack White the musician is alive; his defunct band is a separate credit.
+    assert '384484' in excluded
+    assert '40569' not in excluded
+    assert '118681' not in excluded  # Reunited Oasis.
+    assert '50891' not in excluded  # Tangerine Dream continues after its founder.
+
+
+@pytest.mark.parametrize('title', ['Live Through This', 'Alive', 'New record (Deluxe Edition)'])
+def test_studio_titles_and_current_deluxe_editions_not_overfiltered(title):
+    assert not watch.is_archival_release(album(title=title))

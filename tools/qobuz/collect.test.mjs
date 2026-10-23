@@ -35,3 +35,12 @@ test('classifies candidates and older matching editions only', async () => {
   assert.equal(items[0].release_type,'album');
   assert.equal(items[1].release_type,'single');
 });
+
+
+test('deceased and inactive artist IDs are omitted before catalog scans', async () => {
+  const {eligibleArtists} = await import('./collect.mjs');
+  const artists = new Map([['1', 'Same name'], ['2', 'Same name']]);
+  assert.deepEqual([...eligibleArtists(artists, {artists:{'1':{reason:'deceased'}}})], [['2','Same name']]);
+  assert.equal(artists.size, 2);
+  assert.equal(eligibleArtists(artists, {artists:{'1':{}, '2':{}}}).size, 0);
+});

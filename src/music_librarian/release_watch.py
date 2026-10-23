@@ -16,6 +16,35 @@ from .qobuz_auth import atomic_json
 STATE = Path.home() / '.local/state/qobuz-release-watch'
 GWS = Path.home() / 'Repos/index/scripts/gws-safe.sh'
 RECIPIENT = 'shea.conaway@gmail.com'
+EXCLUSIONS = Path(__file__).with_name('release_exclusions.json')
+
+
+def excluded_artist_ids():
+    return set(json.loads(EXCLUSIONS.read_text())['artists'])
+
+
+def has_excluded_artist(album, excluded):
+    # Main credits matter; a guest appearance does not retire an active artist.
+    credits = [album.get('artist') or {}]
+    credits += [a for a in album.get('artists') or [] if 'main-artist' in (a.get('roles') or [])]
+    return any(str(a.get('id')) in excluded for a in credits)
+
+
+def is_archival_release(album):
+    """Use explicit tags plus edition/title markers, never free-form descriptions."""
+    tags = album.get('release_tags') or []
+    metadata = ' '.join(str(album.get(k) or '') for k in ('version', 'recording_information'))
+    markers = r'\b(live|compilation|reissue|remaster(?:ed)?|anthology|retrospective|anniversary)\b'
+    if any(re.search(markers, str(tag), re.I) for tag in tags) or re.search(markers, metadata, re.I):
+        return True
+    if any(album.get(k) is True for k in ('is_live', 'is_compilation', 'is_reissue')):
+        return True
+    title = album.get('title') or ''
+    return bool(re.search(
+        r'\b(?:reissue|remaster(?:ed)?|anniversary|compilation|anthology|retrospective|'
+        r'greatest hits|best of|complete recordings|singles collection|box set)\b|'
+        r'\b(?:in concert|unplugged)\b|^live$|^live (?:at|in|from|on)\b|'
+        r'[(\[:–—-]\s*live\b|\blive\s*$', title, re.I))
 
 
 def release_key(album):
@@ -39,7 +68,8 @@ def is_classical(album):
             or genre.get('slug') == 'classique')
 
 
-def select_releases(albums, since, today, delivered):
+def select_releases(albums, since, today, delivered, excluded=None):
+    excluded = excluded_artist_ids() if excluded is None else excluded
     groups = {}
     earliest = {}
     for album in albums:
@@ -52,7 +82,8 @@ def select_releases(albums, since, today, delivered):
         key = release_key(album)
         earliest[key] = min(earliest.get(key, date), date)
     for album in albums:
-        if not is_full_album(album) or is_classical(album) or album.get('streamable') is False:
+        if (not is_full_album(album) or is_classical(album) or album.get('streamable') is False
+                or has_excluded_artist(album, excluded) or is_archival_release(album)):
             continue
         raw_date = album.get('release_date_original', '')
         try:
@@ -80,7 +111,7 @@ def render(releases, artist_count, since, today):
         lines.extend([f"{artist} — {album['title']}",
                       f"{album['release_date_original']} · {kind}",
                       f"https://play.qobuz.com/album/{album['id']}", ''])
-    lines += ['', 'Full albums only; classical music (including its subgenres), singles, EPs, and releases without an album classification are excluded. Dates and artist credits come from Qobuz. Earlier matching editions are excluded; incorrect catalog credits or dates may still appear.']
+    lines += ['', 'New studio albums only; deceased artists, inactive bands, live albums, compilations, reissues, remasters, classical music (including its subgenres), singles, EPs, and unclassified releases are excluded. Artist exclusions use a reviewed local list. Dates and release metadata come from Qobuz; unmarked archival releases or incorrect catalog metadata may still slip through.']
     return '\n'.join(lines)
 
 

@@ -1,0 +1,523 @@
+{
+  "reviewed": "2026-10-23",
+  "note": "Reviewed Qobuz artist IDs. Remove a band entry if it resumes activity. Do not infer inactivity from time since last release or from a deceased member alone. Guest credits do not exclude an active main artist.",
+  "artists": {
+    "139708": {
+      "name": "A Tribe Called Quest",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/A_Tribe_Called_Quest"
+    },
+    "2051218": {
+      "name": "Amen Dunes",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Amen_Dunes"
+    },
+    "35129": {
+      "name": "Art Blakey & The Jazz Messengers",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Art_Blakey_%26_The_Jazz_Messengers"
+    },
+    "71458": {
+      "name": "Audioslave",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Audioslave"
+    },
+    "686987": {
+      "name": "Bear in Heaven",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Bear_in_Heaven"
+    },
+    "43813": {
+      "name": "Beastie Boys",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q214039",
+      "ended": "2012-01-01"
+    },
+    "59321": {
+      "name": "Bert Jansch",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q332953",
+      "ended": "2011-10-05"
+    },
+    "374618": {
+      "name": "Best Coast",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Best_Coast"
+    },
+    "42630": {
+      "name": "Bob Marley & The Wailers",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Bob_Marley_and_the_Wailers"
+    },
+    "386025": {
+      "name": "Brightblack Morning Light",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q4967515",
+      "ended": "2012-01-01"
+    },
+    "14756": {
+      "name": "Charles Mingus",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q107432",
+      "ended": "1979-01-05"
+    },
+    "462118": {
+      "name": "Chet Baker",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q2274",
+      "ended": "1988-05-13"
+    },
+    "259173": {
+      "name": "Chromatics",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q1087574",
+      "ended": "2021-01-01"
+    },
+    "35989": {
+      "name": "Cream",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q10846824",
+      "ended": "2007-01-01"
+    },
+    "48145": {
+      "name": "Crystal Castles",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Crystal_Castles"
+    },
+    "36819": {
+      "name": "Daft Punk",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q185828",
+      "ended": "2021-01-01"
+    },
+    "737516": {
+      "name": "Darondo",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q3016442",
+      "ended": "2013-06-09"
+    },
+    "2970095": {
+      "name": "Das Racist",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Das_Racist"
+    },
+    "4906": {
+      "name": "Dave Brubeck",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q108597",
+      "ended": "2012-12-05"
+    },
+    "38326": {
+      "name": "David Bowie",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q5383",
+      "ended": "2016-01-10"
+    },
+    "365440": {
+      "name": "Discovery",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Discovery_%28band%29"
+    },
+    "7648": {
+      "name": "Duke Ellington",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q4030",
+      "ended": "1974-05-24"
+    },
+    "271128": {
+      "name": "Edward Sharpe and the Magnetic Zeros",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Edward_Sharpe_and_the_Magnetic_Zeros"
+    },
+    "129808": {
+      "name": "Elliott Smith",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q210428",
+      "ended": "2003-10-21"
+    },
+    "149561": {
+      "name": "Endo",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Endo_%28band%29"
+    },
+    "38045": {
+      "name": "Fischerspooner",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Fischerspooner"
+    },
+    "132127": {
+      "name": "Fleetwood Mac",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Fleetwood_Mac"
+    },
+    "23015": {
+      "name": "Frank Sinatra",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q40912",
+      "ended": "1998-05-14"
+    },
+    "41422": {
+      "name": "Freddie King",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q436209",
+      "ended": "1976-12-28"
+    },
+    "826072": {
+      "name": "Fugazi",
+      "reason": "inactive",
+      "source": "https://dischord.com/band/fugazi"
+    },
+    "35547": {
+      "name": "Gary Wright",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q290719",
+      "ended": "2023-09-04"
+    },
+    "365901": {
+      "name": "George Harrison",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q2643",
+      "ended": "2001-11-29"
+    },
+    "791523": {
+      "name": "Geto Boys",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Geto_Boys"
+    },
+    "22806": {
+      "name": "Gregory Isaacs",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q440898",
+      "ended": "2010-10-25"
+    },
+    "353818": {
+      "name": "Here We Go Magic",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Here_We_Go_Magic"
+    },
+    "111699": {
+      "name": "Idris Muhammad",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q1391952",
+      "ended": "2014-07-29"
+    },
+    "259051": {
+      "name": "J Dilla",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q352218",
+      "ended": "2006-02-10"
+    },
+    "25049": {
+      "name": "James Brown",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q5950",
+      "ended": "2006-12-25"
+    },
+    "50879": {
+      "name": "Jefferson Airplane",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q488260",
+      "ended": "1972-01-01"
+    },
+    "15083": {
+      "name": "Jelly Roll Morton",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q317128",
+      "ended": "1941-07-10"
+    },
+    "403064": {
+      "name": "Jimi Hendrix",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q5928",
+      "ended": "1970-09-18"
+    },
+    "21": {
+      "name": "Johann Sebastian Bach",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q1339",
+      "ended": "1750-07-28"
+    },
+    "30702": {
+      "name": "John Lennon",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q1203",
+      "ended": "1980-12-08"
+    },
+    "2783758": {
+      "name": "John Lennon/Yoko Ono",
+      "reason": "deceased",
+      "source": "https://en.wikipedia.org/wiki/John_Lennon"
+    },
+    "22802": {
+      "name": "Johnny Cash",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q42775",
+      "ended": "2003-09-12"
+    },
+    "10718": {
+      "name": "Johnny Hodges",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q455176",
+      "ended": "1970-05-11"
+    },
+    "350774": {
+      "name": "Led Zeppelin",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q2331",
+      "ended": "1980-12-04"
+    },
+    "62535": {
+      "name": "Linda McCartney",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q228899",
+      "ended": "1998-04-17"
+    },
+    "767476": {
+      "name": "Lower Dens",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Lower_Dens"
+    },
+    "665881": {
+      "name": "Mac Miller",
+      "reason": "deceased",
+      "source": "https://en.wikipedia.org/wiki/Mac_Miller"
+    },
+    "25043": {
+      "name": "Marvin Gaye",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q189758",
+      "ended": "1984-04-01"
+    },
+    "179143": {
+      "name": "MF DOOM",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q304675",
+      "ended": "2020-10-31"
+    },
+    "50195": {
+      "name": "Michael Jackson",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q2831",
+      "ended": "2009-06-25"
+    },
+    "6760": {
+      "name": "Miles Davis",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q93341",
+      "ended": "1991-09-28"
+    },
+    "43739": {
+      "name": "Mose Allison",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q1382570",
+      "ended": "2016-11-15"
+    },
+    "69630": {
+      "name": "N.W.A",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/N.W.A"
+    },
+    "43247": {
+      "name": "Nick Drake",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q211588",
+      "ended": "1974-11-25"
+    },
+    "46708": {
+      "name": "Nirvana",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Nirvana_%28band%29"
+    },
+    "34527": {
+      "name": "Otis Redding",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q217839",
+      "ended": "1967-12-10"
+    },
+    "1829721": {
+      "name": "Paul McCartney & Wings",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Wings_%28band%29"
+    },
+    "821162": {
+      "name": "People Under The Stairs",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/People_Under_the_Stairs"
+    },
+    "38324": {
+      "name": "Pink Floyd",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Pink_Floyd"
+    },
+    "42267": {
+      "name": "Prince",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q7542",
+      "ended": "2016-04-21"
+    },
+    "155699": {
+      "name": "Rage Against The Machine",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Rage_Against_the_Machine"
+    },
+    "37591": {
+      "name": "Ramsey Lewis",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q1936300",
+      "ended": "2022-09-12"
+    },
+    "35400": {
+      "name": "Ramsey Lewis Trio",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Ramsey_Lewis_Trio"
+    },
+    "384494": {
+      "name": "Ratatat",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Ratatat"
+    },
+    "19237": {
+      "name": "Ravi Shankar",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q103774",
+      "ended": "2012-12-11"
+    },
+    "35276": {
+      "name": "Rick James",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q248207",
+      "ended": "2004-08-06"
+    },
+    "340": {
+      "name": "Robert Johnson",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q192133",
+      "ended": "1938-08-16"
+    },
+    "35266": {
+      "name": "Simian Mobile Disco",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Simian_Mobile_Disco"
+    },
+    "148602": {
+      "name": "Simon & Garfunkel",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Simon_%26_Garfunkel"
+    },
+    "35028": {
+      "name": "Sonic Youth",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Sonic_Youth"
+    },
+    "20169": {
+      "name": "Sun Ra",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q354508",
+      "ended": "1993-05-30"
+    },
+    "135918": {
+      "name": "Talking Heads",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Talking_Heads"
+    },
+    "26390": {
+      "name": "The Beatles",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q1299",
+      "ended": "1970-04-10"
+    },
+    "530693": {
+      "name": "The Books",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_Books"
+    },
+    "167544": {
+      "name": "The Dead Weather",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_Dead_Weather"
+    },
+    "41736": {
+      "name": "The Doors",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_Doors"
+    },
+    "258462": {
+      "name": "The Jon Spencer Blues Explosion",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_Jon_Spencer_Blues_Explosion"
+    },
+    "71045": {
+      "name": "The Kinks",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q188713",
+      "ended": "1996-01-01"
+    },
+    "62496": {
+      "name": "The La's",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_La%27s"
+    },
+    "51303": {
+      "name": "The Mamas & The Papas",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_Mamas_%26_the_Papas"
+    },
+    "53540": {
+      "name": "The Police",
+      "reason": "inactive",
+      "source": "https://www.wikidata.org/entity/Q178095",
+      "ended": "1986-01-01"
+    },
+    "66828": {
+      "name": "The Presidents Of The United States Of America",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_Presidents_of_the_United_States_of_America_%28band%29"
+    },
+    "263181": {
+      "name": "The Unicorns",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_Unicorns"
+    },
+    "384484": {
+      "name": "The White Stripes",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/The_White_Stripes"
+    },
+    "92271": {
+      "name": "Tom Petty",
+      "reason": "deceased",
+      "source": "https://www.wikidata.org/entity/Q311655",
+      "ended": "2017-10-02"
+    },
+    "151855": {
+      "name": "Tom Petty & The Heartbreakers",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Tom_Petty_and_the_Heartbreakers"
+    },
+    "135556": {
+      "name": "Tubeway Army",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Tubeway_Army"
+    },
+    "56588": {
+      "name": "Vince Guaraldi Trio",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Vince_Guaraldi"
+    },
+    "270398": {
+      "name": "Westside Connection",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Westside_Connection"
+    },
+    "38991": {
+      "name": "Wings",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Wings_%28band%29"
+    },
+    "203551": {
+      "name": "Yeasayer",
+      "reason": "inactive",
+      "source": "https://en.wikipedia.org/wiki/Yeasayer"
+    }
+  }
+}

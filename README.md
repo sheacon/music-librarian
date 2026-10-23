@@ -419,9 +419,22 @@ MIT
 The release watcher reads the **Qobuz account library**, independently of the NAS
 scanner. It covers artists credited on favorite albums/tracks, followed artists,
 and purchases, including collaborative and featured credits. It refreshes that list
-on each run and emails new full albums with Qobuz links. All classical albums,
+on each run and emails new studio albums with Qobuz links. Deceased artists and
+inactive bands are skipped using reviewed Qobuz IDs in
+`src/music_librarian/release_exclusions.json`; each entry records a public source.
+Update that list when artists die, bands stop or resume activity, or favorites add
+other inactive artists. A long gap between releases alone does not qualify, and
+bands continuing after a member dies remain eligible. Only main artist credits
+are filtered, so guest credits do not suppress an active artist’s album.
+All classical albums,
 including contemporary classical and subgenres such as chamber and symphonic music,
-are excluded using Qobuz's genre hierarchy. Singles and EPs are excluded using Qobuz’s explicit release classification, not track count; unclassified releases are omitted. Full non-classical live albums remain eligible.
+are excluded using Qobuz's genre hierarchy. Singles and EPs are excluded using
+Qobuz’s explicit release classification, not track count; unclassified releases
+are omitted. Live albums, compilations, reissues, remasters, and anniversary editions are
+excluded using Qobuz release tags, edition/recording metadata, explicit flags, and
+title markers. Newly released deluxe studio albums remain eligible if no earlier
+edition exists. Unmarked archival releases can still slip through incorrect or
+incomplete catalog metadata.
 Candidate releases and earlier matching editions are enriched through `album/get` to obtain their classification. Original release dates keep identifiable old catalog reissues out; duplicate editions select the
 highest listed fidelity. Nothing is downloaded or changed in the account.
 

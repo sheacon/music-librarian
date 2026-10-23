@@ -26,6 +26,10 @@ export async function pages(get, endpoint, key, params) {
     }
   }
 
+export function eligibleArtists(artists, exclusions) {
+  return new Map([...artists].filter(([id]) => !Object.hasOwn(exclusions.artists, String(id))));
+}
+
 export function workKey(album) {
   const title = album.title.replace(/\s*[\[(][^\])]*(?:deluxe|remaster|expanded|anniversary|edition)[^\])]*[\])]/gi, '').replace(/\s+/g, ' ').trim().toLowerCase();
   return String(album.artist?.id ?? '') + '|' + title;
@@ -88,11 +92,14 @@ async function main() {
       for (const artist of item.artists ?? item.album?.artists ?? []) add(artist);
     }
   }
+  const exclusions = JSON.parse(await readFile(new URL('../../src/music_librarian/release_exclusions.json', import.meta.url), 'utf8'));
   if (!artists.size) throw new Error('No library artists returned');
+  const trackedArtists = eligibleArtists(artists, exclusions);
+  console.log(`Excluded ${artists.size - trackedArtists.size} deceased/inactive artists.`);
   console.log(`Loaded ${artists.size} artists; ${JSON.stringify(counts)}`);
   const albums = new Map();
   let completed = 0;
-  const remaining = [...artists.keys()];
+  const remaining = [...trackedArtists.keys()];
   async function worker() {
     while (remaining.length) {
       const id = remaining.shift();
@@ -100,7 +107,7 @@ async function main() {
       for (const album of items) {
         if (String(album.artist?.id) === id || album.artists?.some(a => String(a.id) === id)) albums.set(String(album.id), album);
       }
-      if (++completed % 25 === 0) console.log(`Checked ${completed}/${artists.size} artists`);
+      if (++completed % 25 === 0) console.log(`Checked ${completed}/${trackedArtists.size} artists`);
       await sleep(200);
     }
   }
@@ -108,9 +115,9 @@ async function main() {
   await classifyCandidates(get, [...albums.values()], since, through);
   await mkdir(dirname(output), {recursive:true});
   const temp = `${output}.${process.pid}.tmp`;
-  await writeFile(temp, JSON.stringify({collected_at:new Date().toISOString(), counts, artists:Object.fromEntries(artists), albums:[...albums.values()]}), {mode:0o600});
+  await writeFile(temp, JSON.stringify({collected_at:new Date().toISOString(), counts, artists:Object.fromEntries(trackedArtists), excluded_artists:artists.size - trackedArtists.size, albums:[...albums.values()]}), {mode:0o600});
   await rename(temp, output);
-  console.log(`Collected ${albums.size} releases across ${artists.size} artists.`);
+  console.log(`Collected ${albums.size} releases across ${trackedArtists.size} artists.`);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(error => {console.error(error.message); process.exit(1);});
