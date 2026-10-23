@@ -1,6 +1,6 @@
 {
   "reviewed": "2026-10-23",
-  "note": "Reviewed Qobuz artist IDs. Remove a band entry if it resumes activity. Do not infer inactivity from time since last release or from a deceased member alone. Guest credits do not exclude an active main artist.",
+  "note": "Reviewed migration seeds for automated artist status assessment. Runtime artist-status.json overrides these when a newer assessment resolves an artist, including reunions. Do not infer inactivity from time since last release or from a deceased member alone. Guest credits do not exclude an active main artist.",
   "artists": {
     "139708": {
       "name": "A Tribe Called Quest",

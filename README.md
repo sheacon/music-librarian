@@ -419,13 +419,37 @@ MIT
 The release watcher reads the **Qobuz account library**, independently of the NAS
 scanner. It covers artists credited on favorite albums/tracks, followed artists,
 and purchases, including collaborative and featured credits. It refreshes that list
-on each run and emails new studio albums with Qobuz links. Deceased artists and
-inactive bands are skipped using reviewed Qobuz IDs in
-`src/music_librarian/release_exclusions.json`; each entry records a public source.
-Update that list when artists die, bands stop or resume activity, or favorites add
-other inactive artists. A long gap between releases alone does not qualify, and
-bands continuing after a member dies remain eligible. Only main artist credits
-are filtered, so guest credits do not suppress an active artist’s album.
+on each run and emails new studio albums with Qobuz links. Before catalog scans,
+`music_librarian.artist_status` automatically reassesses the current artists using
+public Wikipedia musical-artist profiles. Artist-name requests to Wikipedia are
+authorized for this watcher; account credentials, library files and personal notes
+are never sent. New artists are checked immediately, and a six-day page cache
+ensures every weekly run rechecks living artists and inactive bands. Confirmed
+death records are retained. HTTP ETag/Last-Modified validators avoid downloading
+unchanged pages when supported.
+
+Matching requires a musical-artist infobox and the artist name, a Wikipedia alias
+redirect, or an already reviewed/pinned source. Known identities are not silently
+swapped for namesakes. Death fields, explicit activity periods and current hiatus
+markers establish exclusions. A later activity period ending in “present” restores
+a reunited band. A long release gap or a deceased member mentioned in prose does
+not retire a band. The sourced checked-in list in
+`src/music_librarian/release_exclusions.json` supplies migration seeds; successful
+new assessments override it, including restoring reunited bands.
+
+Runtime `artist-status.json` records sources, evidence, changes, and assessment
+times. `artist-pages.json` holds compact public infobox fields and HTTP validators,
+not full articles. Both stay in `~/.local/state/qobuz-release-watch/` with mode
+0600; automated runs do not edit Git. Incomplete or ambiguous profiles retain the
+previous status; new unknown artists remain eligible. The digest reports unresolved
+counts. Wikipedia coverage, edit delays and ambiguous current-year activity ranges
+limit assessments. A failed reference lookup aborts the scan, keeps the previous
+status set and delivery checkpoint, and uses the existing job failure alert.
+Completed public-page lookups are saved for retry. No new scheduler or notification
+channel is needed.
+
+Only main artist credits are filtered, so guest credits do not suppress an active
+artist’s album.
 All classical albums,
 including contemporary classical and subgenres such as chamber and symphonic music,
 are excluded using Qobuz's genre hierarchy. Singles and EPs are excluded using

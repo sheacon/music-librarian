@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from email.message import EmailMessage
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -100,9 +101,13 @@ def select_releases(albums, since, today, delivered, excluded=None):
     return sorted(groups.values(), key=lambda a: (a['release_date_original'], a.get('artist', {}).get('name', ''), a['title']), reverse=True)
 
 
-def render(releases, artist_count, since, today):
+def render(releases, artist_count, since, today, assessment=None):
     lines = [f'Qobuz new releases: {since} through {today}',
              f'Checked {artist_count} artists from your Qobuz library.', '']
+    if assessment is not None:
+        lines.insert(2, f"Artist status refreshed automatically; {len(assessment['artists'])} excluded, {len(assessment['unresolved'])} unresolved.")
+        if assessment['unresolved']:
+            lines.insert(3, 'Unresolved matches retain their last known status; new unknown artists remain eligible.')
     if not releases:
         lines.append('No new releases found this week.')
     for album in releases:
@@ -111,7 +116,7 @@ def render(releases, artist_count, since, today):
         lines.extend([f"{artist} — {album['title']}",
                       f"{album['release_date_original']} · {kind}",
                       f"https://play.qobuz.com/album/{album['id']}", ''])
-    lines += ['', 'New studio albums only; deceased artists, inactive bands, live albums, compilations, reissues, remasters, classical music (including its subgenres), singles, EPs, and unclassified releases are excluded. Artist exclusions use a reviewed local list. Dates and release metadata come from Qobuz; unmarked archival releases or incorrect catalog metadata may still slip through.']
+    lines += ['', 'New studio albums only; deceased artists, inactive bands, live albums, compilations, reissues, remasters, classical music (including its subgenres), singles, EPs, and unclassified releases are excluded. Artist exclusions are reassessed weekly from public Wikipedia artist profiles; confirmed deaths are retained. Unresolved identities retain their last known status. Dates and release metadata come from Qobuz; unmarked archival releases or incorrect catalog metadata may still slip through.']
     return '\n'.join(lines)
 
 
@@ -173,11 +178,12 @@ def run(state_dir=STATE, preview=False):
             since = dt.date.fromisoformat(state['through']) - dt.timedelta(days=7) if state['through'] else today - dt.timedelta(days=7)
             collector = Path(__file__).resolve().parents[2] / 'tools/qobuz/collect.mjs'
             snapshot_path = state_dir / 'catalog.json'
-            subprocess.run(['node', str(collector), '--output', str(snapshot_path), '--since', str(since), '--through', str(today)], check=True, timeout=1800)
+            subprocess.run(['node', str(collector), '--output', str(snapshot_path), '--since', str(since), '--through', str(today), '--python', sys.executable], check=True, timeout=2400)
             snapshot = json.loads(snapshot_path.read_text())
             artists, albums = snapshot['artists'], snapshot['albums']
-            releases = select_releases(albums, since, today, set(state['delivered']))
-            body = render(releases, len(artists), since, today)
+            assessment = snapshot['artist_assessment']
+            releases = select_releases(albums, since, today, set(state['delivered']), excluded=set(assessment['artists']))
+            body = render(releases, len(artists), since, today, assessment)
             digest_id = hashlib.sha256((str(today) + body).encode()).hexdigest()[:24]
             pending = {'subject': f'Qobuz weekly releases — {today}', 'body': body,
                        'message_id': f'qobuz-{digest_id}@index.local', 'through': str(today),

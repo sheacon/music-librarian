@@ -151,3 +151,28 @@ def test_reviewed_exclusions_and_active_members_are_separate():
 @pytest.mark.parametrize('title', ['Live Through This', 'Alive', 'New record (Deluxe Edition)'])
 def test_studio_titles_and_current_deluxe_editions_not_overfiltered(title):
     assert not watch.is_archival_release(album(title=title))
+
+
+def test_runtime_assessment_can_restore_previously_excluded_artist():
+    item=album()
+    item['artist']={'id':135918,'name':'Reunited band'}
+    found=watch.select_releases([item],dt.date(2026,9,23),dt.date(2026,9,30),set(),excluded=set())
+    assert found == [item]
+
+
+def test_digest_discloses_unresolved_assessments():
+    body=watch.render([],10,dt.date(2026,9,23),dt.date(2026,9,30),{'artists':{'1':{}},'unresolved':['2']})
+    assert '1 excluded, 1 unresolved' in body
+    assert 'new unknown artists remain eligible' in body
+
+
+def test_assessment_failure_never_sends_or_advances_checkpoint(tmp_path):
+    import subprocess
+    original={'through':'2026-09-30','delivered':['old']}
+    atomic_json(tmp_path/'state.json',original)
+    with patch.object(watch.subprocess,'run',side_effect=subprocess.CalledProcessError(1,'collector')), patch.object(watch,'deliver') as deliver:
+        with pytest.raises(subprocess.CalledProcessError):
+            watch.run(tmp_path,preview=True)
+    deliver.assert_not_called()
+    assert json.loads((tmp_path/'state.json').read_text()) == original
+    assert not (tmp_path/'pending.json').exists()

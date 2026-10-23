@@ -1,5 +1,6 @@
 // Metadata collector using the maintained @kud/qobuz-cli client dependency.
 import {createTransport} from '@kud/qobuz';
+import {spawnSync} from 'node:child_process';
 import {readFile, writeFile, rename, mkdir} from 'node:fs/promises';
 import {homedir} from 'node:os';
 import {dirname, resolve} from 'node:path';
@@ -28,6 +29,19 @@ export async function pages(get, endpoint, key, params) {
 
 export function eligibleArtists(artists, exclusions) {
   return new Map([...artists].filter(([id]) => !Object.hasOwn(exclusions.artists, String(id))));
+}
+
+export function assessArtists(artists, output, python = 'python3', run = spawnSync) {
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  const result = run(python, ['-m', 'music_librarian.artist_status', '--cache', resolve(dirname(output), 'artist-status.json')], {
+    input: JSON.stringify(Object.fromEntries(artists)), encoding:'utf8', timeout:1200000,
+    env:{...process.env, PYTHONPATH:resolve(root, 'src') + (process.env.PYTHONPATH ? ':' + process.env.PYTHONPATH : '')}
+  });
+  if (result.error || result.status !== 0) throw new Error(result.stderr?.trim() || 'Artist status assessment failed');
+  const assessed = JSON.parse(result.stdout);
+  if (assessed.assessed !== artists.size || !assessed.artists || !Array.isArray(assessed.unresolved) || !Array.isArray(assessed.changes)) throw new Error('Incomplete artist status assessment');
+  console.log(`Artist status: ${artists.size} assessed, ${Object.keys(assessed.artists).length} excluded, ${assessed.unresolved.length} unresolved, ${assessed.changes.length} changes.`);
+  return assessed;
 }
 
 export function workKey(album) {
@@ -92,8 +106,9 @@ async function main() {
       for (const artist of item.artists ?? item.album?.artists ?? []) add(artist);
     }
   }
-  const exclusions = JSON.parse(await readFile(new URL('../../src/music_librarian/release_exclusions.json', import.meta.url), 'utf8'));
   if (!artists.size) throw new Error('No library artists returned');
+  const pythonIndex = process.argv.indexOf('--python');
+  const exclusions = assessArtists(artists, output, pythonIndex < 0 ? 'python3' : process.argv[pythonIndex + 1]);
   const trackedArtists = eligibleArtists(artists, exclusions);
   console.log(`Excluded ${artists.size - trackedArtists.size} deceased/inactive artists.`);
   console.log(`Loaded ${artists.size} artists; ${JSON.stringify(counts)}`);
@@ -115,7 +130,7 @@ async function main() {
   await classifyCandidates(get, [...albums.values()], since, through);
   await mkdir(dirname(output), {recursive:true});
   const temp = `${output}.${process.pid}.tmp`;
-  await writeFile(temp, JSON.stringify({collected_at:new Date().toISOString(), counts, artists:Object.fromEntries(trackedArtists), excluded_artists:artists.size - trackedArtists.size, albums:[...albums.values()]}), {mode:0o600});
+  await writeFile(temp, JSON.stringify({collected_at:new Date().toISOString(), counts, artists:Object.fromEntries(trackedArtists), excluded_artists:artists.size - trackedArtists.size, artist_assessment:exclusions, albums:[...albums.values()]}), {mode:0o600});
   await rename(temp, output);
   console.log(`Collected ${albums.size} releases across ${trackedArtists.size} artists.`);
 }

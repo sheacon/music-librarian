@@ -44,3 +44,26 @@ test('deceased and inactive artist IDs are omitted before catalog scans', async 
   assert.equal(artists.size, 2);
   assert.equal(eligibleArtists(artists, {artists:{'1':{}, '2':{}}}).size, 0);
 });
+
+
+test('assessment runs locally with the current library before catalog filtering', async () => {
+  const {assessArtists, eligibleArtists} = await import('./collect.mjs');
+  const artists = new Map([['1','Current'],['2','Newly followed']]);
+  let invocation;
+  const run = (...args) => {
+    invocation=args;
+    return {status:0, stdout:JSON.stringify({assessed:2, artists:{'2':{status:'inactive'}}, unresolved:[], changes:[]})};
+  };
+  const assessment = assessArtists(artists, '/tmp/test/catalog.json', 'python-custom', run);
+  assert.equal(invocation[0], 'python-custom');
+  assert.equal(invocation[1][1], 'music_librarian.artist_status');
+  assert.deepEqual(JSON.parse(invocation[2].input), {'1':'Current','2':'Newly followed'});
+  assert.deepEqual([...eligibleArtists(artists, assessment).keys()], ['1']);
+});
+
+test('failed or incomplete assessment stops catalog collection', async () => {
+  const {assessArtists} = await import('./collect.mjs');
+  const artists = new Map([['1','Artist']]);
+  assert.throws(()=>assessArtists(artists,'/tmp/catalog.json','python',()=>({status:1,stderr:'Reference unavailable'})), /Reference unavailable/);
+  assert.throws(()=>assessArtists(artists,'/tmp/catalog.json','python',()=>({status:0,stdout:'{"assessed":0,"artists":{},"unresolved":[],"changes":[]}'})), /Incomplete/);
+});
